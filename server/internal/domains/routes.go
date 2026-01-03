@@ -1,0 +1,70 @@
+package jobs
+
+import (
+	"log/slog"
+
+	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
+
+	"woragis-jobs-service/internal/domains/jobapplications"
+	"woragis-jobs-service/internal/domains/jobapplications/interviewstages"
+	"woragis-jobs-service/internal/domains/jobapplications/responses"
+	"woragis-jobs-service/internal/domains/resumes"
+	"woragis-jobs-service/internal/domains/jobwebsites"
+	"woragis-jobs-service/pkg/aiservice"
+	"woragis-jobs-service/pkg/authservice"
+	"woragis-jobs-service/pkg/middleware"
+)
+
+// SetupRoutes sets up all jobs service routes
+func SetupRoutes(api fiber.Router, db *gorm.DB, authServiceURL string, aiServiceURL string, logger *slog.Logger) {
+	// Initialize Auth Service client
+	authClient := authservice.NewClient(authServiceURL)
+
+	// Apply auth validation middleware to all routes
+	api.Use(middleware.AuthValidationMiddleware(middleware.DefaultAuthValidationConfig(authClient)))
+
+	// Initialize repositories
+	jobAppRepo := jobapplications.NewGormRepository(db)
+	resumeRepo := resumes.NewGormRepository(db)
+	jobWebsiteRepo := jobwebsites.NewGormRepository(db)
+
+	// Initialize services
+	jobAppService := jobapplications.NewService(jobAppRepo, nil, logger) // Queue will be nil for now
+	resumeService := resumes.NewService(resumeRepo, logger)
+	jobWebsiteService := jobwebsites.NewService(jobWebsiteRepo, logger)
+
+	// Initialize AI service client for cover letter generation
+	var coverLetterGenerator jobapplications.CoverLetterGenerator
+	if aiServiceURL != "" {
+		aiClient := aiservice.NewClient(aiServiceURL)
+		coverLetterGenerator = jobapplications.NewAIServiceCoverLetterGenerator(aiClient, logger)
+		logger.Info("AI service client initialized for cover letter generation", "url", aiServiceURL)
+	} else {
+		logger.Warn("AI service URL not provided, cover letter generation will be disabled")
+	}
+
+	// Initialize handlers
+	var jobAppHandler jobapplications.Handler
+	if coverLetterGenerator != nil {
+		jobAppHandler = jobapplications.NewHandlerWithDependencies(jobAppService, nil, nil, coverLetterGenerator, logger)
+	} else {
+		jobAppHandler = jobapplications.NewHandler(jobAppService, logger)
+	}
+	resumeHandler := resumes.NewHandler(resumeService, nil, "", logger) // Queue and baseFilePath will be nil/empty for now
+	jobWebsiteHandler := jobwebsites.NewHandler(jobWebsiteService, logger)
+
+	// Initialize subdomain handlers
+	responseRepo := responses.NewGormRepository(db)
+	responseService := responses.NewService(responseRepo, logger)
+	responseHandler := responses.NewHandler(responseService, logger)
+	
+	stageRepo := interviewstages.NewGormRepository(db)
+	stageService := interviewstages.NewService(stageRepo, logger)
+	stageHandler := interviewstages.NewHandler(stageService, logger)
+
+	// Setup routes
+	jobapplications.SetupRoutes(api.Group("/job-applications"), jobAppHandler, responseHandler, stageHandler)
+	resumes.SetupRoutes(api.Group("/resumes"), resumeHandler)
+	jobwebsites.SetupRoutes(api.Group("/job-websites"), jobWebsiteHandler)
+}
