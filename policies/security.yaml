@@ -1,0 +1,49 @@
+version: "1.0.0"
+security:
+  content_filter:
+    enabled: true
+    blocked_patterns:
+      - "<script[^>]*>.*?</script>"
+      - "javascript:"
+      - "on\\w+\\s*="
+      - "eval\\s*\\("
+      - "exec\\s*\\("
+    blocked_keywords:
+      - "malware"
+      - "virus"
+      - "exploit"
+      - "hack"
+    action: "block"
+  
+  pii_detection:
+    enabled: true
+    detect_email: true
+    detect_phone: true
+    detect_ssn: true
+    detect_credit_card: true
+    detect_ip_address: true
+    mask_char: "*"
+    action: "mask"
+  
+  response_sanitization:
+    enabled: true
+    remove_html_tags: true
+    remove_script_tags: true
+    remove_event_handlers: true
+    max_length: null
+    allowed_html_tags: ["p", "br", "strong", "em", "ul", "ol", "li"]
+  
+  prompt_injection:
+    enabled: true
+    suspicious_patterns:
+      - "ignore\\s+(previous|above|all)\\s+instructions?"
+      - "forget\\s+(everything|all|previous)"
+      - "you\\s+are\\s+now\\s+(a|an)\\s+"
+      - "system\\s*:\\s*"
+      - "<\\|system\\|>"
+      - "\\[SYSTEM\\]"
+      - "override"
+      - "bypass"
+    action: "block"
+    threshold: 0.5
+

@@ -1,0 +1,93 @@
+version: "1.0.0"
+
+resilience:
+  name: "jobs-service"
+  description: "Resilience policy for jobs service AI operations"
+  
+  enable_circuit_breaker: true
+  enable_retry: true
+  enable_graceful_degradation: true
+  
+  retry_strategies:
+    openai:
+      max_attempts: 3
+      backoff_type: "exponential"
+      initial_delay: 0.2
+      max_delay: 5.0
+      multiplier: 2.0
+      retryable_errors:
+        - "rate_limit"
+        - "timeout"
+        - "service_unavailable"
+        - "internal_server_error"
+    
+    anthropic:
+      max_attempts: 3
+      backoff_type: "exponential"
+      initial_delay: 0.2
+      max_delay: 5.0
+      multiplier: 2.0
+      retryable_errors:
+        - "rate_limit"
+        - "timeout"
+        - "service_unavailable"
+    
+    default:
+      max_attempts: 3
+      backoff_type: "exponential"
+      initial_delay: 0.2
+      max_delay: 5.0
+      multiplier: 2.0
+      retryable_errors:
+        - "rate_limit"
+        - "timeout"
+        - "service_unavailable"
+  
+  circuit_breakers:
+    openai:
+      failure_threshold: 5
+      success_threshold: 2
+      timeout: 30.0
+      half_open_max_calls: 3
+    
+    anthropic:
+      failure_threshold: 5
+      success_threshold: 2
+      timeout: 30.0
+      half_open_max_calls: 3
+    
+    default:
+      failure_threshold: 5
+      success_threshold: 2
+      timeout: 30.0
+      half_open_max_calls: 3
+  
+  timeouts:
+    default: 30.0
+    per_provider:
+      openai: 30.0
+      anthropic: 30.0
+    per_model:
+      "gpt-4o": 30.0
+      "claude-3-opus": 30.0
+    per_endpoint:
+      "/v1/chat": 30.0
+  
+  graceful_degradation:
+    - condition: "error_type"
+      threshold: "rate_limit"
+      action: "downgrade_model"
+      fallback_model: "gpt-4o-mini"
+    
+    - condition: "error_type"
+      threshold: "timeout"
+      action: "use_fallback"
+      fallback_provider: "anthropic"
+      fallback_model: "claude-3-sonnet"
+    
+    - condition: "provider_failure"
+      threshold: "circuit_open"
+      action: "use_fallback"
+      fallback_provider: "anthropic"
+      fallback_model: "claude-3-sonnet"
+

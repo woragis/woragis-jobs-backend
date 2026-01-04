@@ -36,13 +36,14 @@ func (g *AIServiceCoverLetterGenerator) GenerateCoverLetterWithContext(
 	// Build the user input with job and profile information
 	userInput := g.buildUserInput(profile, job, additionalContext)
 
-	// Call the AI service
+	// Call the AI service using the cover_letter agent
 	req := aiservice.ChatRequest{
-		Agent:  "startup", // Using "startup" agent for professional writing
+		Agent:  "cover_letter", // Using specialized cover_letter agent
 		Input:  userInput,
 		System: &systemPrompt,
 		// Use default temperature for professional writing (balanced creativity)
 		Temperature: func() *float64 { t := 0.7; return &t }(),
+		MaxTokens: func() *int { t := 2000; return &t }(), // Cover letters should be concise
 	}
 
 	g.logger.Info("generating cover letter",

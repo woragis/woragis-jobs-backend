@@ -1,0 +1,25 @@
+version: "1.0.0"
+caching:
+  enabled: true
+  
+  ttl:
+    default_ttl_seconds: 3600
+    per_agent_ttl:
+      cover_letter: 7200
+      resume_optimization: 3600
+      job_analysis: 1800
+      interview_preparation: 3600
+    per_endpoint_ttl:
+      /v1/chat: 3600
+  
+  semantic_similarity:
+    enabled: true
+    similarity_threshold: 0.85
+    embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+    max_cache_entries: 10000
+  
+  size_limits:
+    max_size_mb: 500
+    max_entries: 10000
+    eviction_policy: "lru"
+

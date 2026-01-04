@@ -1,0 +1,21 @@
+version: "1.0.0"
+cost_control:
+  budget:
+    enabled: true
+    daily_limit_usd: 50.0
+    monthly_limit_usd: 1500.0
+    per_request_limit_usd: 1.0
+    reset_hour: 0
+  
+  token_limits:
+    enabled: true
+    max_input_tokens: 50000
+    max_output_tokens: 4000
+    max_total_tokens: 54000
+  
+  cost_routing:
+    enabled: true
+    prefer_cheaper_models: false
+    cost_threshold_usd: 0.01
+    quality_threshold: 0.8
+

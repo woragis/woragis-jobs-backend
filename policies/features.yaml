@@ -1,0 +1,17 @@
+version: "1.0.0"
+features:
+  streaming:
+    enabled: true
+  
+  knowledge_base:
+    enabled: true
+  
+  semantic_caching:
+    enabled: true
+  
+  cost_tracking:
+    enabled: true
+  
+  quality_checks:
+    enabled: true
+

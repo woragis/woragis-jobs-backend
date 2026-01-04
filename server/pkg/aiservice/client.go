@@ -32,14 +32,19 @@ type ChatRequest struct {
 	Input      string   `json:"input"`
 	System     *string  `json:"system,omitempty"`
 	Temperature *float64 `json:"temperature,omitempty"`
+	MaxTokens  *int     `json:"max_tokens,omitempty"`
 	Model      *string  `json:"model,omitempty"`
 	Provider   *string  `json:"provider,omitempty"`
 }
 
 // ChatResponse represents a chat response from the AI service
 type ChatResponse struct {
-	Agent  string `json:"agent"`
-	Output string `json:"output"`
+	Output    string                 `json:"output"`
+	Agent     string                 `json:"agent"`
+	Provider  string                 `json:"provider"`
+	Model     string                 `json:"model"`
+	Usage     map[string]interface{} `json:"usage,omitempty"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // Chat sends a chat request to the AI service

@@ -1,0 +1,45 @@
+version: "1.0.0"
+quality:
+  length_limits:
+    enabled: true
+    min_length: 50
+    max_length: 50000
+    per_agent_limits:
+      cover_letter:
+        min: 200
+        max: 2000
+      resume_optimization:
+        min: 100
+        max: 5000
+      job_analysis:
+        min: 100
+        max: 3000
+      interview_preparation:
+        min: 100
+        max: 5000
+  
+  format_validation:
+    enabled: true
+    allowed_formats: ["text", "json", "markdown"]
+    required_format: "text"
+    validate_json: false
+    validate_markdown: true
+  
+  quality_checks:
+    enabled: true
+    check_coherence: true
+    check_relevance: true
+    coherence_threshold: 0.5
+    relevance_threshold: 0.5
+    use_semantic_similarity: true
+  
+  toxicity_detection:
+    enabled: true
+    threshold: 0.7
+    action: "block"
+    toxic_keywords:
+      - "hate"
+      - "violence"
+      - "discrimination"
+      - "harassment"
+

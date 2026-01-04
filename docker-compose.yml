@@ -113,7 +113,7 @@ services:
       - woragis-network
 
   ai-service:
-    image: woragis/ai-service:1.1.0
+    image: woragis/ai-service:v2.0.0
     container_name: jobs-service-ai-service
     depends_on:
       redis:
@@ -129,6 +129,13 @@ services:
       XAI_MODEL: ${XAI_MODEL:-grok-beta}
       CORS_ENABLED: ${CORS_ENABLED:-true}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:4173,http://127.0.0.1:4173}
+      REDIS_URL: redis://redis:6379/0
+      VECTOR_DB_TYPE: qdrant
+      VECTOR_DB_HOST: ${VECTOR_DB_HOST:-qdrant}
+      VECTOR_DB_PORT: ${VECTOR_DB_PORT:-6333}
+      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://jaeger:4318}
+    volumes:
+      - ./policies:/app/policies:ro
     ports:
       - "${AI_SERVICE_PORT:-8001}:8000"
     healthcheck:

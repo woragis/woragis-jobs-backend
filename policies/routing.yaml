@@ -1,0 +1,75 @@
+version: "1.0.0"
+
+routing:
+  name: "jobs-service"
+  description: "Routing policy for jobs service AI operations"
+  
+  default_provider: "openai"
+  default_model: "gpt-4o"
+  enable_auto_routing: true
+  
+  providers:
+    openai:
+      priority: 1
+      models:
+        - "gpt-4o"
+        - "gpt-4-turbo"
+        - "gpt-4o-mini"
+      cost_tier: "medium"
+      quality_tier: "high"
+      enabled: true
+      timeout: 60.0
+      max_retries: 3
+    
+    anthropic:
+      priority: 2
+      models:
+        - "claude-3-opus"
+        - "claude-3-sonnet"
+        - "claude-3-haiku"
+      cost_tier: "medium"
+      quality_tier: "high"
+      enabled: true
+      timeout: 60.0
+      max_retries: 3
+  
+  fallback_chains:
+    - primary: "openai"
+      fallbacks:
+        - "anthropic"
+      conditions:
+        error_types: ["rate_limit", "timeout", "service_unavailable"]
+  
+  complexity_rules:
+    - complexity: "simple"
+      provider_preference:
+        - "openai"
+      model_preference:
+        openai: "gpt-4o-mini"
+      conditions:
+        max_tokens: 1500
+    
+    - complexity: "complex"
+      provider_preference:
+        - "openai"
+        - "anthropic"
+      model_preference:
+        openai: "gpt-4o"
+        anthropic: "claude-3-opus"
+      conditions:
+        max_tokens: 3000
+  
+  cost_quality:
+    mode: "balanced"
+    cost_threshold: 0.10
+    quality_threshold: 0.8
+    provider_mapping:
+      cost_optimized:
+        openai: "gpt-4o-mini"
+      balanced:
+        openai: "gpt-4o"
+        anthropic: "claude-3-sonnet"
+      quality_optimized:
+        openai: "gpt-4o"
+        anthropic: "claude-3-opus"
+
