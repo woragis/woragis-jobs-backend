@@ -122,13 +122,7 @@ func (h *handler) UpdateJobWebsite(c *fiber.Ctx) error {
 		})
 	}
 
-	updates := JobWebsiteUpdates{
-		DailyLimit:  payload.DailyLimit,
-		Enabled:     payload.Enabled,
-		BaseURL:     payload.BaseURL,
-		LoginURL:    payload.LoginURL,
-		DisplayName: payload.DisplayName,
-	}
+	updates := JobWebsiteUpdates(payload)
 
 	website, err := h.service.UpdateJobWebsite(c.Context(), websiteID, updates)
 	if err != nil {

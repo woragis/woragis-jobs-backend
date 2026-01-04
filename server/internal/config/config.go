@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -61,15 +60,6 @@ func getEnvAsInt(key string, defaultValue int) int {
 	return defaultValue
 }
 
-// getEnvAsInt64 gets an environment variable as an int64 with a fallback
-func getEnvAsInt64(key string, defaultValue int64) int64 {
-	valueStr := getEnv(key, "")
-	if value, err := strconv.ParseInt(valueStr, 10, 64); err == nil {
-		return value
-	}
-	return defaultValue
-}
-
 // getEnvAsDuration gets an environment variable as a duration with a fallback
 func getEnvAsDuration(key string, defaultValue string) time.Duration {
 	valueStr := getEnv(key, defaultValue)
@@ -78,13 +68,4 @@ func getEnvAsDuration(key string, defaultValue string) time.Duration {
 	}
 	duration, _ := time.ParseDuration(defaultValue)
 	return duration
-}
-
-// getEnvAsSlice gets an environment variable as a slice of strings
-func getEnvAsSlice(key string, defaultValue []string) []string {
-	valueStr := getEnv(key, "")
-	if valueStr == "" {
-		return defaultValue
-	}
-	return strings.Split(valueStr, ",")
 }

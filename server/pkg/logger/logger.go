@@ -12,11 +12,13 @@ import (
 	"time"
 )
 
+type traceIDKeyType string
+
 const (
 	// ServiceName is the name of the service for structured logging
 	ServiceName = "woragis-jobs-service"
 	// TraceIDKey is the context key for trace ID
-	TraceIDKey = "trace_id"
+	TraceIDKey traceIDKeyType = "trace_id"
 	// DefaultLogDir is the default directory for log files in development
 	DefaultLogDir = "logs"
 )

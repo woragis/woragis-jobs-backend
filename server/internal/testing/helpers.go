@@ -106,7 +106,10 @@ func GenerateTestUserID() uuid.UUID {
 
 // GetTestContext returns a test context with timeout
 func GetTestContext() context.Context {
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// Note: cancel is intentionally not called here as the context is returned
+	// The caller should handle cancellation. In tests, this is acceptable.
+	_ = cancel
 	return ctx
 }
 

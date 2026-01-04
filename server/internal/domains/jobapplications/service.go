@@ -164,7 +164,10 @@ func (s *service) RequestJobApplication(ctx context.Context, userID uuid.UUID, c
 	if err := s.queue.EnqueueJob(ctx, job); err != nil {
 		// If queue fails, mark application as failed
 		application.MarkFailed(fmt.Sprintf("Failed to enqueue job: %v", err))
-		s.repo.UpdateJobApplication(ctx, application)
+		if updateErr := s.repo.UpdateJobApplication(ctx, application); updateErr != nil {
+			// Log error but don't fail the request - the main error is the queue failure
+			s.logger.Error("failed to update application status after queue failure", "error", updateErr)
+		}
 		return nil, err
 	}
 

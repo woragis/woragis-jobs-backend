@@ -215,7 +215,7 @@ func ValidateUpdateJobApplicationPayload(payload *updateJobApplicationPayload) e
 	}
 
 	// Validate tags (optional, but if provided, validate each tag)
-	if payload.Tags != nil && len(payload.Tags) > 0 {
+	if len(payload.Tags) > 0 {
 		if len(payload.Tags) > 20 {
 			return fmt.Errorf("tags: too many tags (maximum 20)")
 		}

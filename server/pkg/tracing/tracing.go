@@ -16,11 +16,14 @@ import (
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
+
+type traceIDKeyType string
 
 const (
 	// TraceIDKey is the context key for trace ID (matches logger package)
-	TraceIDKey = "trace_id"
+	TraceIDKey traceIDKeyType = "trace_id"
 )
 
 var (
@@ -144,7 +147,7 @@ func Init(cfg Config) (func(), error) {
 func Tracer() trace.Tracer {
 	if tracer == nil {
 		// Fallback to no-op tracer if not initialized
-		return trace.NewNoopTracerProvider().Tracer("noop")
+		return noop.NewTracerProvider().Tracer("noop")
 	}
 	return tracer
 }
@@ -187,6 +190,7 @@ func ContextWithTraceID(ctx context.Context, traceID string) context.Context {
 		// Otherwise, just store in context for logger
 		// For now, we'll create a new span and let OpenTelemetry generate the ID
 		// The trace_id will be available via context for logging
+		_ = span // Span is available for future use if needed
 	}
 
 	return ctx

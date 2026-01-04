@@ -56,6 +56,7 @@ func Middleware(serviceName string) fiber.Handler {
 		traceID := span.SpanContext().TraceID().String()
 		if traceID != "" {
 			ctx = ContextWithTraceID(ctx, traceID)
+			c.SetUserContext(ctx) // Update context with trace ID
 			c.Set("X-Trace-ID", traceID)
 			// Also set traceparent header (W3C standard)
 			// Format: 00-{trace-id}-{span-id}-{flags}

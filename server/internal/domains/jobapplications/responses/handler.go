@@ -191,13 +191,7 @@ func (h *handler) UpdateResponse(c *fiber.Ctx) error {
 		})
 	}
 
-	updates := UpdateResponseRequest{
-		Message:         payload.Message,
-		ContactPerson:   payload.ContactPerson,
-		ContactEmail:    payload.ContactEmail,
-		ContactPhone:    payload.ContactPhone,
-		ResponseChannel: payload.ResponseChannel,
-	}
+	updates := UpdateResponseRequest(payload)
 
 	resp, err := h.service.UpdateResponse(c.Context(), responseID, updates)
 	if err != nil {

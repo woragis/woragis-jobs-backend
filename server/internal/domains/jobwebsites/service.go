@@ -81,15 +81,15 @@ func (s *service) UpdateJobWebsite(ctx context.Context, websiteID uuid.UUID, upd
 	}
 	if updates.BaseURL != nil {
 		website.BaseURL = *updates.BaseURL
-		website.UpdatedAt = website.UpdatedAt
+		website.UpdatedAt = time.Now()
 	}
 	if updates.LoginURL != nil {
 		website.LoginURL = *updates.LoginURL
-		website.UpdatedAt = website.UpdatedAt
+		website.UpdatedAt = time.Now()
 	}
 	if updates.DisplayName != nil {
 		website.DisplayName = *updates.DisplayName
-		website.UpdatedAt = website.UpdatedAt
+		website.UpdatedAt = time.Now()
 	}
 
 	if err := s.repo.UpdateJobWebsite(ctx, website); err != nil {

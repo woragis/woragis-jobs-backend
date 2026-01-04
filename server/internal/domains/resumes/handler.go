@@ -287,7 +287,7 @@ func (h *handler) DeleteResume(c *fiber.Ctx) error {
 	}
 
 	// Delete the file
-	fullPath := filepath.Join(h.baseFilePath, resume.FilePath)
+	var fullPath string
 	if !filepath.IsAbs(resume.FilePath) {
 		fullPath = filepath.Join(h.baseFilePath, resume.FilePath)
 	} else {
@@ -544,7 +544,7 @@ func (h *handler) DownloadResume(c *fiber.Ctx) error {
 	}
 
 	// Build full file path
-	fullPath := filepath.Join(h.baseFilePath, resume.FilePath)
+	var fullPath string
 	if !filepath.IsAbs(resume.FilePath) {
 		fullPath = filepath.Join(h.baseFilePath, resume.FilePath)
 	} else {
@@ -604,7 +604,7 @@ func (h *handler) DownloadResumeByID(c *fiber.Ctx) error {
 	}
 
 	// Build full file path
-	fullPath := filepath.Join(h.baseFilePath, resume.FilePath)
+	var fullPath string
 	if !filepath.IsAbs(resume.FilePath) {
 		fullPath = filepath.Join(h.baseFilePath, resume.FilePath)
 	} else {
@@ -665,7 +665,7 @@ func (h *handler) PreviewResume(c *fiber.Ctx) error {
 	}
 
 	// Build full file path
-	fullPath := filepath.Join(h.baseFilePath, resume.FilePath)
+	var fullPath string
 	if !filepath.IsAbs(resume.FilePath) {
 		fullPath = filepath.Join(h.baseFilePath, resume.FilePath)
 	} else {
