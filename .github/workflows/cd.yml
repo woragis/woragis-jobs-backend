@@ -37,9 +37,9 @@ jobs:
           file: ./server/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKER_HUB_USERNAME }}/auth-service:${{ steps.tag.outputs.tag }}
-            ${{ secrets.DOCKER_HUB_USERNAME }}/auth-service:${{ steps.tag.outputs.version }}
-            ${{ secrets.DOCKER_HUB_USERNAME }}/auth-service:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/woragis-jobs-backend:${{ steps.tag.outputs.tag }}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/woragis-jobs-backend:${{ steps.tag.outputs.version }}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/woragis-jobs-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
