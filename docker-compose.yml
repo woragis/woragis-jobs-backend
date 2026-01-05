@@ -349,5 +349,5 @@ networks:
   jobs-service-network:
     driver: bridge
   woragis-network:
-    external: true
+    driver: bridge
     name: woragis-network
