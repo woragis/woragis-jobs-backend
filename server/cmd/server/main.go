@@ -118,7 +118,10 @@ func main() {
 	// CORS middleware (if enabled)
 	corsCfg := config.LoadCORSConfig()
 	if corsCfg.Enabled {
+		slogLogger.Info("CORS enabled", "allowed_origins", corsCfg.AllowedOrigins, "allowed_methods", corsCfg.AllowedMethods, "allow_credentials", corsCfg.AllowCredentials)
 		config.SetupCORS(app, corsCfg)
+	} else {
+		slogLogger.Info("CORS disabled")
 	}
 
 	// Initialize health checker
