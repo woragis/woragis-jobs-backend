@@ -12,17 +12,18 @@ import (
 	"woragis-jobs-service/internal/domains/resumes"
 	"woragis-jobs-service/internal/domains/jobwebsites"
 	"woragis-jobs-service/pkg/aiservice"
-	"woragis-jobs-service/pkg/authservice"
+	authPkg "woragis-jobs-service/pkg/auth"
 	"woragis-jobs-service/pkg/middleware"
 )
 
 // SetupRoutes sets up all jobs service routes
-func SetupRoutes(api fiber.Router, db *gorm.DB, authServiceURL string, aiServiceURL string, logger *slog.Logger) {
-	// Initialize Auth Service client
-	authClient := authservice.NewClient(authServiceURL)
-
-	// Apply auth validation middleware to all routes
-	api.Use(middleware.AuthValidationMiddleware(middleware.DefaultAuthValidationConfig(authClient)))
+func SetupRoutes(api fiber.Router, db *gorm.DB, jwtManager *authPkg.JWTManager, aiServiceURL string, logger *slog.Logger) {
+	// Apply JWT validation middleware to all routes (local validation, no HTTP calls)
+	if jwtManager != nil {
+		api.Use(middleware.JWTMiddleware(middleware.JWTConfig{
+			JWTManager: jwtManager,
+		}))
+	}
 
 	// Initialize repositories
 	jobAppRepo := jobapplications.NewGormRepository(db)

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -58,9 +59,10 @@ func AuthValidationMiddleware(config AuthValidationConfig) fiber.Handler {
 		// Validate token with Auth Service
 		response, err := config.AuthServiceClient.ValidateToken(token)
 		if err != nil {
+			// Return error with details for debugging
 			return c.Status(fiber.StatusInternalServerError).JSON(utils.ErrorResponse{
 				Success: false,
-				Message: "failed to validate token",
+				Message: fmt.Sprintf("failed to validate token: %v", err),
 			})
 		}
 

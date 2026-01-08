@@ -9,6 +9,8 @@ import (
 // Note: Logger middleware is now handled by pkg/logger
 func SetupCORS(app *fiber.App, corsCfg *CORSConfig) {
 	if corsCfg.Enabled {
+		// Use AllowOrigins string directly - Fiber supports comma-separated strings
+		// This is more reliable than AllowOriginsFunc, especially for preflight requests
 		app.Use(cors.New(cors.Config{
 			AllowOrigins:     corsCfg.AllowedOrigins,
 			AllowMethods:     corsCfg.AllowedMethods,

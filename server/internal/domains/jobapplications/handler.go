@@ -159,17 +159,10 @@ type updateStatusPayload struct {
 
 func (h *handler) CreateJobApplication(c *fiber.Ctx) error {
 	// Get user ID from context (set by auth validation middleware)
-	userIDStr, err := middleware.UserIDFromContext(c)
+	userID, err := middleware.GetUserIDFromFiberContext(c)
 	if err != nil {
 		return response.Error(c, fiber.StatusUnauthorized, 401, fiber.Map{
 			"message": "authentication required",
-		})
-	}
-	
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, 400, fiber.Map{
-			"message": "invalid user ID",
 		})
 	}
 
@@ -234,7 +227,9 @@ func (h *handler) CreateJobApplication(c *fiber.Ctx) error {
 		application, err = h.service.UpdateJobApplication(c.Context(), application.ID, updates)
 		if err != nil {
 			// Log error but don't fail the request
-			h.logger.Warn("failed to update application fields", slog.Any("error", err))
+			if h.logger != nil {
+				h.logger.Warn("failed to update application fields", slog.Any("error", err))
+			}
 		}
 	}
 
@@ -252,9 +247,11 @@ func (h *handler) CreateJobApplication(c *fiber.Ctx) error {
 		})
 		if err != nil {
 			// Log error but don't fail the request
-			h.logger.Warn("failed to auto-create conversation for job application", 
-				slog.String("application_id", jobAppID.String()),
-				slog.Any("error", err))
+			if h.logger != nil {
+				h.logger.Warn("failed to auto-create conversation for job application", 
+					slog.String("application_id", jobAppID.String()),
+					slog.Any("error", err))
+			}
 		}
 	}
 
@@ -328,10 +325,12 @@ func (h *handler) GetJobApplication(c *fiber.Ctx) error {
 			}
 		} else {
 			// Log error but don't fail the request
-			h.logger.Warn("failed to fetch resume data",
-				slog.String("resume_id", application.ResumeID.String()),
-				slog.Any("error", err),
-			)
+			if h.logger != nil {
+				h.logger.Warn("failed to fetch resume data",
+					slog.String("resume_id", application.ResumeID.String()),
+					slog.Any("error", err),
+				)
+			}
 		}
 	}
 
@@ -340,23 +339,16 @@ func (h *handler) GetJobApplication(c *fiber.Ctx) error {
 
 func (h *handler) ListJobApplications(c *fiber.Ctx) error {
 	// Get user ID from context
-	var userID *uuid.UUID
-	userIDStr, err := middleware.UserIDFromContext(c)
+	userID, err := middleware.GetUserIDFromFiberContext(c)
 	if err != nil {
 		return response.Error(c, fiber.StatusUnauthorized, 401, fiber.Map{
 			"message": "authentication required",
 		})
 	}
-	uid, err := uuid.Parse(userIDStr)
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, 400, fiber.Map{
-			"message": "invalid user ID",
-		})
-	}
-	userID = &uid
+	userIDPtr := &userID
 
 	filters := JobApplicationFilters{
-		UserID: userID,
+		UserID: userIDPtr,
 	}
 
 	// Capture query parameters for validation
@@ -583,16 +575,10 @@ func (h *handler) DeleteJobApplication(c *fiber.Ctx) error {
 		})
 	}
 
-	userIDStr, err := middleware.UserIDFromContext(c)
+	userID, err := middleware.GetUserIDFromFiberContext(c)
 	if err != nil {
 		return response.Error(c, fiber.StatusUnauthorized, 401, fiber.Map{
 			"message": "authentication required",
-		})
-	}
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, 400, fiber.Map{
-			"message": "invalid user ID",
 		})
 	}
 
@@ -643,7 +629,9 @@ func (h *handler) handleError(c *fiber.Ctx, err error) error {
 		})
 	}
 
-	h.logger.Error("unhandled error", slog.Any("error", err))
+	if h.logger != nil {
+		h.logger.Error("unhandled error", slog.Any("error", err))
+	}
 	return response.Error(c, fiber.StatusInternalServerError, 500, fiber.Map{
 		"message": "internal server error",
 	})

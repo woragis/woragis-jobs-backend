@@ -30,6 +30,8 @@ type CSRFConfig struct {
 	CookieName string
 	// HeaderName is the name of the header to read CSRF token (default: "X-CSRF-Token")
 	HeaderName string
+	// SecureCookie determines if the cookie should only be sent over HTTPS (default: true in production)
+	SecureCookie bool
 	// ExemptRoutes is a list of routes that don't require CSRF protection
 	ExemptRoutes []string
 	// ExemptMethods is a list of HTTP methods that don't require CSRF protection
@@ -37,13 +39,15 @@ type CSRFConfig struct {
 }
 
 // DefaultCSRFConfig returns default CSRF configuration
-func DefaultCSRFConfig(redisClient *redis.Client) CSRFConfig {
+// secureCookie should be false in development (HTTP) and true in production (HTTPS)
+func DefaultCSRFConfig(redisClient *redis.Client, secureCookie bool) CSRFConfig {
 	return CSRFConfig{
 		RedisClient:  redisClient,
 		TokenLength:  32,
 		TokenTTL:     1 * time.Hour,
 		CookieName:   "csrf_token",
 		HeaderName:   "X-CSRF-Token",
+		SecureCookie: secureCookie,
 		ExemptRoutes: []string{"/healthz", "/metrics", "/api/v1/auth/login", "/api/v1/auth/register"},
 		ExemptMethods: []string{"GET", "HEAD", "OPTIONS"},
 	}
@@ -73,17 +77,8 @@ func CSRFMiddleware(config CSRFConfig) fiber.Handler {
 	}
 
 	return func(c *fiber.Ctx) error {
-		// Check if method is exempt
-		if exemptMethods[c.Method()] {
-			return c.Next()
-		}
-
-		// Check if route is exempt
-		if exemptRoutes[c.Path()] {
-			return c.Next()
-		}
-
-		// For GET requests, generate and return a new CSRF token
+		// For GET requests, always generate and return a new CSRF token
+		// This happens before exemption checks so tokens are always available
 		if c.Method() == "GET" {
 			token, err := generateToken(config.TokenLength)
 			if err != nil {
@@ -110,7 +105,7 @@ func CSRFMiddleware(config CSRFConfig) fiber.Handler {
 				Name:     config.CookieName,
 				Value:    token,
 				HTTPOnly: false, // Must be readable by JavaScript for API clients
-				Secure:   true,  // Only send over HTTPS in production
+				Secure:   config.SecureCookie, // Configurable based on environment
 				SameSite: "Strict",
 				MaxAge:   int(config.TokenTTL.Seconds()),
 			})
@@ -121,7 +116,18 @@ func CSRFMiddleware(config CSRFConfig) fiber.Handler {
 			return c.Next()
 		}
 
-		// For state-changing requests, validate CSRF token
+		// For state-changing requests (POST, PUT, PATCH, DELETE), validate CSRF token
+		// Check if method is exempt from validation (e.g., OPTIONS for CORS preflight)
+		if exemptMethods[c.Method()] {
+			return c.Next()
+		}
+
+		// Check if route is exempt from validation
+		if exemptRoutes[c.Path()] {
+			return c.Next()
+		}
+
+		// Extract token from header or cookie
 		token := c.Get(config.HeaderName)
 		if token == "" {
 			// Try to get from cookie

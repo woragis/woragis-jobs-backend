@@ -160,15 +160,28 @@ func (s *service) RequestJobApplication(ctx context.Context, userID uuid.UUID, c
 		Website:     website,
 	}
 
-	// Enqueue job
-	if err := s.queue.EnqueueJob(ctx, job); err != nil {
-		// If queue fails, mark application as failed
-		application.MarkFailed(fmt.Sprintf("Failed to enqueue job: %v", err))
-		if updateErr := s.repo.UpdateJobApplication(ctx, application); updateErr != nil {
-			// Log error but don't fail the request - the main error is the queue failure
-			s.logger.Error("failed to update application status after queue failure", "error", updateErr)
+	// Enqueue job (if queue is available)
+	if s.queue != nil {
+		if err := s.queue.EnqueueJob(ctx, job); err != nil {
+			// If queue fails, mark application as failed
+			application.MarkFailed(fmt.Sprintf("Failed to enqueue job: %v", err))
+			if updateErr := s.repo.UpdateJobApplication(ctx, application); updateErr != nil {
+				// Log error but don't fail the request - the main error is the queue failure
+				if s.logger != nil {
+					s.logger.Error("failed to update application status after queue failure", "error", updateErr)
+				}
+			}
+			return nil, err
 		}
-		return nil, err
+	} else {
+		// Queue is not available, mark as processing (will be processed manually or via other means)
+		application.MarkProcessing()
+		if updateErr := s.repo.UpdateJobApplication(ctx, application); updateErr != nil {
+			// Log error but don't fail the request
+			if s.logger != nil {
+				s.logger.Warn("failed to update application status to processing", "error", updateErr)
+			}
+		}
 	}
 
 	// Mark as processing
@@ -207,7 +220,9 @@ func (s *service) UpdateJobApplicationStatus(ctx context.Context, applicationID 
 	if (oldStatus != status && status == ApplicationStatusAccepted) || application.ResumeID != nil {
 		if s.resumeMetricsService != nil && application.ResumeID != nil {
 			if err := s.resumeMetricsService.RecalculateResumeMetrics(ctx, *application.ResumeID); err != nil {
-				s.logger.Warn("failed to recalculate resume metrics", "resume_id", application.ResumeID.String(), "error", err)
+				if s.logger != nil {
+					s.logger.Warn("failed to recalculate resume metrics", "resume_id", application.ResumeID.String(), "error", err)
+				}
 				// Don't fail the request if metric recalculation fails
 			}
 		}
@@ -295,13 +310,17 @@ func (s *service) UpdateJobApplication(ctx context.Context, applicationID uuid.U
 		if oldResumeID != nil && (application.ResumeID == nil || *oldResumeID != *application.ResumeID) {
 			// Old resume metrics need updating
 			if err := s.resumeMetricsService.RecalculateResumeMetrics(ctx, *oldResumeID); err != nil {
-				s.logger.Warn("failed to recalculate old resume metrics", "resume_id", oldResumeID.String(), "error", err)
+				if s.logger != nil {
+					s.logger.Warn("failed to recalculate old resume metrics", "resume_id", oldResumeID.String(), "error", err)
+				}
 			}
 		}
 		if application.ResumeID != nil {
 			// New resume metrics need updating
 			if err := s.resumeMetricsService.RecalculateResumeMetrics(ctx, *application.ResumeID); err != nil {
-				s.logger.Warn("failed to recalculate new resume metrics", "resume_id", application.ResumeID.String(), "error", err)
+				if s.logger != nil {
+					s.logger.Warn("failed to recalculate new resume metrics", "resume_id", application.ResumeID.String(), "error", err)
+				}
 			}
 		}
 	}
@@ -319,9 +338,11 @@ func (s *service) DeleteJobApplication(ctx context.Context, applicationID uuid.U
 	// Unlink conversations from this job application (preserve chat history)
 	if s.chatsRepo != nil {
 		if err := s.chatsRepo.UnlinkFromJobApplication(ctx, applicationID); err != nil {
-			s.logger.Warn("failed to unlink conversations from job application",
-				"application_id", applicationID.String(),
-				"error", err)
+			if s.logger != nil {
+				s.logger.Warn("failed to unlink conversations from job application",
+					"application_id", applicationID.String(),
+					"error", err)
+			}
 			// Continue with deletion even if unlinking fails
 		}
 	}
@@ -331,10 +352,12 @@ func (s *service) DeleteJobApplication(ctx context.Context, applicationID uuid.U
 		return err
 	}
 
-	s.logger.Info("job application deleted",
-		"application_id", applicationID.String(),
-		"company_name", application.CompanyName,
-		"job_title", application.JobTitle)
+	if s.logger != nil {
+		s.logger.Info("job application deleted",
+			"application_id", applicationID.String(),
+			"company_name", application.CompanyName,
+			"job_title", application.JobTitle)
+	}
 
 	return nil
 }
