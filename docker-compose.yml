@@ -1,7 +1,7 @@
 services:
-  database:
+  woragis-jobs-database:
     image: postgres:15-alpine
-    container_name: jobs-service-database
+    container_name: woragis-jobs-database
     environment:
       POSTGRES_DB: jobs_service
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
@@ -19,9 +19,9 @@ services:
     networks:
       - jobs-service-network
 
-  redis:
+  woragis-jobs-redis:
     image: redis:7-alpine
-    container_name: jobs-service-redis
+    container_name: woragis-jobs-redis
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -35,9 +35,9 @@ services:
     networks:
       - jobs-service-network
 
-  rabbitmq:
+  woragis-jobs-rabbitmq:
     image: rabbitmq:3.13-management-alpine
-    container_name: jobs-service-rabbitmq
+    container_name: woragis-jobs-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-woragis}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-woragis}
@@ -56,17 +56,17 @@ services:
     networks:
       - jobs-service-network
 
-  app:
+  woragis-jobs-app:
     build:
       context: ./server
       dockerfile: Dockerfile
-    container_name: jobs-service-app
+    container_name: woragis-jobs-app
     depends_on:
-      database:
+      woragis-jobs-database:
         condition: service_healthy
-      redis:
+      woragis-jobs-redis:
         condition: service_healthy
-      rabbitmq:
+      woragis-jobs-rabbitmq:
         condition: service_healthy
     environment:
       APP_ENV: ${APP_ENV:-development}
@@ -77,12 +77,12 @@ services:
       AUTH_JWT_TTL: ${AUTH_JWT_TTL:-24h}
       AES_KEY: ${AES_KEY:-}
       HASH_SALT: ${HASH_SALT:-}
-      DATABASE_URL: postgres://${POSTGRES_USER:-woragis}:${POSTGRES_PASSWORD:-password}@database:5432/${POSTGRES_DB:-jobs_service}?sslmode=disable
-      REDIS_URL: redis://redis:6379/0
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-woragis}:${RABBITMQ_PASSWORD:-woragis}@rabbitmq:5672/${RABBITMQ_VHOST:-/}
+      DATABASE_URL: postgres://${POSTGRES_USER:-woragis}:${POSTGRES_PASSWORD:-password}@woragis-jobs-database:5432/${POSTGRES_DB:-jobs_service}?sslmode=disable
+      REDIS_URL: redis://woragis-jobs-redis:6379/0
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-woragis}:${RABBITMQ_PASSWORD:-woragis}@woragis-jobs-rabbitmq:5672/${RABBITMQ_VHOST:-/}
       RABBITMQ_USER: ${RABBITMQ_USER:-woragis}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-woragis}
-      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-woragis-jobs-rabbitmq}
       RABBITMQ_PORT: ${RABBITMQ_PORT:-5671}
       RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
       SMTP_HOST: ${SMTP_HOST:-}
@@ -93,7 +93,7 @@ services:
       SMTP_TLS: ${SMTP_TLS:-true}
       MONITORING_ENABLED: ${MONITORING_ENABLED:-true}
       METRICS_NAMESPACE: jobs-service
-      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://jaeger:4318}
+      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://woragis-jobs-jaeger:4318}
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-}
       CORS_ENABLED: ${CORS_ENABLED:-true}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:4173,http://127.0.0.1:4173}
@@ -102,9 +102,9 @@ services:
       CORS_EXPOSED_HEADERS: ${CORS_EXPOSED_HEADERS:-X-CSRF-Token}
       CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS:-true}
       CORS_MAX_AGE: ${CORS_MAX_AGE:-86400}
-      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8000}
-      CREATIVE_SERVICE_URL: ${CREATIVE_SERVICE_URL:-http://creative-service:8000}
-      EMAIL_WORKER_URL: ${EMAIL_WORKER_URL:-http://email-worker:8080}
+      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://woragis-jobs-ai-service:8000}
+      CREATIVE_SERVICE_URL: ${CREATIVE_SERVICE_URL:-http://woragis-jobs-creative-service:8000}
+      EMAIL_WORKER_URL: ${EMAIL_WORKER_URL:-http://woragis-jobs-email-worker:8080}
     ports:
       - "${APP_PORT:-3011}:3000"
     restart: on-failure
@@ -112,11 +112,11 @@ services:
       - jobs-service-network
       - woragis-network
 
-  ai-service:
+  woragis-jobs-ai-service:
     image: woragis/ai-service:v2.0.0
-    container_name: jobs-service-ai-service
+    container_name: woragis-jobs-ai-service
     depends_on:
-      redis:
+      woragis-jobs-redis:
         condition: service_healthy
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -129,11 +129,11 @@ services:
       XAI_MODEL: ${XAI_MODEL:-grok-beta}
       CORS_ENABLED: ${CORS_ENABLED:-true}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:4173,http://127.0.0.1:4173}
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: redis://woragis-jobs-redis:6379/0
       VECTOR_DB_TYPE: qdrant
       VECTOR_DB_HOST: ${VECTOR_DB_HOST:-qdrant}
       VECTOR_DB_PORT: ${VECTOR_DB_PORT:-6333}
-      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://jaeger:4318}
+      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://woragis-jobs-jaeger:4318}
     volumes:
       - ./policies:/app/policies:ro
     ports:
@@ -148,11 +148,11 @@ services:
     networks:
       - jobs-service-network
 
-  creative-service:
+  woragis-jobs-creative-service:
     image: woragis/creative-service:1.1.0
-    container_name: jobs-service-creative-service
+    container_name: woragis-jobs-creative-service
     depends_on:
-      redis:
+      woragis-jobs-redis:
         condition: service_healthy
     environment:
       CORS_ENABLED: ${CORS_ENABLED:-true}
@@ -186,18 +186,18 @@ services:
     networks:
       - jobs-service-network
 
-  email-worker:
+  woragis-jobs-email-worker:
     image: woragis/email-worker:1.1.0
-    container_name: jobs-service-email-worker
+    container_name: woragis-jobs-email-worker
     depends_on:
-      rabbitmq:
+      woragis-jobs-rabbitmq:
         condition: service_healthy
     environment:
       APP_ENV: ${APP_ENV:-production}
-      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://${RABBITMQ_USER:-woragis}:${RABBITMQ_PASSWORD:-woragis}@rabbitmq:5672/}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://${RABBITMQ_USER:-woragis}:${RABBITMQ_PASSWORD:-woragis}@woragis-jobs-rabbitmq:5672/}
       RABBITMQ_USER: ${RABBITMQ_USER:-woragis}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-woragis}
-      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-woragis-jobs-rabbitmq}
       RABBITMQ_PORT: ${RABBITMQ_PORT:-5671}
       RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
       EMAIL_QUEUE_NAME: ${EMAIL_QUEUE_NAME:-emails.queue}
@@ -222,27 +222,27 @@ services:
     networks:
       - jobs-service-network
 
-  resume-service:
+  woragis-jobs-resume-service:
     image: woragis/resume-service:v1.0.0
-    container_name: jobs-service-resume-service
+    container_name: woragis-jobs-resume-service
     depends_on:
-      database:
+      woragis-jobs-database:
         condition: service_healthy
-      redis:
+      woragis-jobs-redis:
         condition: service_healthy
-      rabbitmq:
+      woragis-jobs-rabbitmq:
         condition: service_healthy
-      ai-service:
+      woragis-jobs-ai-service:
         condition: service_healthy
     environment:
       # Database Configuration
-      DATABASE_URL: postgres://${POSTGRES_USER:-woragis}:${POSTGRES_PASSWORD:-password}@database:5432/${POSTGRES_DB:-jobs_service}?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER:-woragis}:${POSTGRES_PASSWORD:-password}@woragis-jobs-database:5432/${POSTGRES_DB:-jobs_service}?sslmode=disable
       
       # AI Service URL
-      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8000}
+      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://woragis-jobs-ai-service:8000}
       
       # RabbitMQ Configuration
-      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-woragis-jobs-rabbitmq}
       RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
       RABBITMQ_USER: ${RABBITMQ_USER:-woragis}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-woragis}
@@ -256,7 +256,7 @@ services:
       
       # Tracing & Monitoring
       ENABLE_TRACING: ${ENABLE_TRACING:-true}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://jaeger:4318}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://woragis-jobs-jaeger:4318}
     
     ports:
       - "${RESUME_SERVICE_PORT:-8031}:8080"
@@ -276,9 +276,9 @@ services:
     networks:
       - jobs-service-network
 
-  prometheus:
+  woragis-jobs-prometheus:
     image: prom/prometheus:v2.54.1
-    container_name: jobs-service-prometheus
+    container_name: woragis-jobs-prometheus
     volumes:
       - ./monitoring/prometheus-config.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -290,7 +290,7 @@ services:
       - "--web.console.libraries=/usr/share/prometheus/console_libraries"
       - "--web.console.templates=/usr/share/prometheus/consoles"
     depends_on:
-      - app
+      - woragis-jobs-app
     ports:
       - "${PROMETHEUS_PORT:-9101}:9090"
     restart: unless-stopped
@@ -302,9 +302,9 @@ services:
     networks:
       - jobs-service-network
 
-  loki:
+  woragis-jobs-loki:
     image: grafana/loki:2.9.2
-    container_name: jobs-service-loki
+    container_name: woragis-jobs-loki
     ports:
       - "${LOKI_PORT:-3111}:3100"
     volumes:
@@ -323,9 +323,9 @@ services:
     networks:
       - jobs-service-network
 
-  promtail:
+  woragis-jobs-promtail:
     image: grafana/promtail:2.9.2
-    container_name: jobs-service-promtail
+    container_name: woragis-jobs-promtail
     volumes:
       - ./monitoring/promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
@@ -333,15 +333,15 @@ services:
       - promtail-positions:/tmp
     command: -config.file=/etc/promtail/config.yml
     depends_on:
-      loki:
+      woragis-jobs-loki:
         condition: service_healthy
     restart: unless-stopped
     networks:
       - jobs-service-network
 
-  jaeger:
+  woragis-jobs-jaeger:
     image: jaegertracing/all-in-one:1.57
-    container_name: jobs-service-jaeger
+    container_name: woragis-jobs-jaeger
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
       COLLECTOR_ZIPKIN_HOST_PORT: ":9411"
@@ -364,15 +364,15 @@ services:
     networks:
       - jobs-service-network
 
-  grafana:
+  woragis-jobs-grafana:
     image: grafana/grafana:11.1.0
-    container_name: jobs-service-grafana
+    container_name: woragis-jobs-grafana
     depends_on:
-      loki:
+      woragis-jobs-loki:
         condition: service_healthy
-      prometheus:
+      woragis-jobs-prometheus:
         condition: service_healthy
-      jaeger:
+      woragis-jobs-jaeger:
         condition: service_healthy
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
