@@ -7,12 +7,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_USER: ${POSTGRES_USER:-woragis}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-woragis}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-woragis}']
       interval: 10s
       timeout: 5s
       retries: 5
     ports:
-      - "${POSTGRES_PORT:-5443}:5432"
+      - '${POSTGRES_PORT:-5443}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -23,12 +23,12 @@ services:
     image: redis:7-alpine
     container_name: woragis-jobs-redis
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
     ports:
-      - "${REDIS_PORT:-6390}:6379"
+      - '${REDIS_PORT:-6390}:6379'
     volumes:
       - redis-data:/data
     restart: unless-stopped
@@ -43,13 +43,13 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-woragis}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
     ports:
-      - "${RABBITMQ_PORT:-5682}:5672"   # AMQP port
-      - "${RABBITMQ_MGMT_PORT:-15682}:15672" # Management UI
+      - '${RABBITMQ_PORT:-5682}:5672' # AMQP port
+      - '${RABBITMQ_MGMT_PORT:-15682}:15672' # Management UI
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     restart: unless-stopped
@@ -106,7 +106,7 @@ services:
       CREATIVE_SERVICE_URL: ${CREATIVE_SERVICE_URL:-http://woragis-jobs-creative-service:8000}
       EMAIL_WORKER_URL: ${EMAIL_WORKER_URL:-http://woragis-jobs-email-worker:8080}
     ports:
-      - "${APP_PORT:-3011}:3000"
+      - '${APP_PORT:-3011}:3000'
     restart: on-failure
     networks:
       - jobs-service-network
@@ -137,9 +137,13 @@ services:
     volumes:
       - ./policies:/app/policies:ro
     ports:
-      - "${AI_SERVICE_PORT:-8011}:8000"
+      - '${AI_SERVICE_PORT:-8011}:8000'
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8000/healthz || exit 1"]
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-verbose --tries=1 --spider http://localhost:8000/healthz || exit 1',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -175,9 +179,13 @@ services:
       DEFAULT_IMAGE_FORMAT: ${DEFAULT_IMAGE_FORMAT:-png}
       DEFAULT_DIAGRAM_FORMAT: ${DEFAULT_DIAGRAM_FORMAT:-png}
     ports:
-      - "${CREATIVE_SERVICE_PORT:-8021}:8000"
+      - '${CREATIVE_SERVICE_PORT:-8021}:8000'
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8000/healthz || exit 1"]
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-verbose --tries=1 --spider http://localhost:8000/healthz || exit 1',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -211,19 +219,23 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
       SMTP_TLS: ${SMTP_TLS:-true}
     ports:
-      - "${EMAIL_WORKER_PORT:-8091}:8080"
+      - '${EMAIL_WORKER_PORT:-8091}:8080'
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1"]
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
-    restart: "no"
+    restart: 'no'
     networks:
       - jobs-service-network
 
   woragis-jobs-resume-service:
-    image: woragis/resume-service:v1.0.0
+    image: woragis/resume-service:v2.0.0
     container_name: woragis-jobs-resume-service
     depends_on:
       woragis-jobs-database:
@@ -237,41 +249,45 @@ services:
     environment:
       # Database Configuration
       DATABASE_URL: postgres://${POSTGRES_USER:-woragis}:${POSTGRES_PASSWORD:-password}@woragis-jobs-database:5432/${POSTGRES_DB:-jobs_service}?sslmode=disable
-      
+
       # AI Service URL
       AI_SERVICE_URL: ${AI_SERVICE_URL:-http://woragis-jobs-ai-service:8000}
-      
+
       # RabbitMQ Configuration
       RABBITMQ_HOST: ${RABBITMQ_HOST:-woragis-jobs-rabbitmq}
       RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
       RABBITMQ_USER: ${RABBITMQ_USER:-woragis}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-woragis}
       RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
-      
+
       # Service Configuration
       ENV: ${APP_ENV:-production}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       RESUME_OUTPUT_DIR: /app/output
       RESULTS_LOG_DIR: /app/results
-      
+
       # Tracing & Monitoring
       ENABLE_TRACING: ${ENABLE_TRACING:-true}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://woragis-jobs-jaeger:4318}
-    
+
     ports:
-      - "${RESUME_SERVICE_PORT:-8031}:8080"
-    
+      - '${RESUME_SERVICE_PORT:-8031}:8080'
+
     volumes:
       - resume-output:/app/output
       - resume-results:/app/results
-    
+
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1"]
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-verbose --tries=1 --spider http://localhost:8080/healthz || exit 1',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
-    
+
     restart: on-failure
     networks:
       - jobs-service-network
@@ -284,18 +300,22 @@ services:
       - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
     command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--storage.tsdb.retention.time=30d"
-      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
-      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
     depends_on:
       - woragis-jobs-app
     ports:
-      - "${PROMETHEUS_PORT:-9101}:9090"
+      - '${PROMETHEUS_PORT:-9101}:9090'
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9090/-/healthy || exit 1"]
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-verbose --tries=1 --spider http://localhost:9090/-/healthy || exit 1',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -306,17 +326,26 @@ services:
     image: grafana/loki:2.9.2
     container_name: woragis-jobs-loki
     ports:
-      - "${LOKI_PORT:-3111}:3100"
+      - '${LOKI_PORT:-3111}:3100'
     volumes:
       - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki-data:/loki
-    command: 
+    command:
       - -config.file=/etc/loki/local-config.yaml
       - -target=all
-    entrypoint: ["/bin/sh", "-c", "mkdir -p /loki/rules && /usr/bin/loki -config.file=/etc/loki/local-config.yaml -target=all"]
+    entrypoint:
+      [
+        '/bin/sh',
+        '-c',
+        'mkdir -p /loki/rules && /usr/bin/loki -config.file=/etc/loki/local-config.yaml -target=all',
+      ]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"]
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -343,21 +372,25 @@ services:
     image: jaegertracing/all-in-one:1.57
     container_name: woragis-jobs-jaeger
     environment:
-      COLLECTOR_OTLP_ENABLED: "true"
-      COLLECTOR_ZIPKIN_HOST_PORT: ":9411"
+      COLLECTOR_OTLP_ENABLED: 'true'
+      COLLECTOR_ZIPKIN_HOST_PORT: ':9411'
     ports:
-      - "${JAEGER_UI_PORT:-16697}:16686"  # Jaeger UI
-      - "${JAEGER_OTLP_GRPC_PORT:-4329}:4317"    # OTLP gRPC
-      - "${JAEGER_OTLP_HTTP_PORT:-4330}:4318"    # OTLP HTTP
-      - "${JAEGER_AGENT_UDP_6831:-6843}:6831/udp"  # Jaeger agent (UDP)
-      - "${JAEGER_AGENT_UDP_6832:-6844}:6832/udp"  # Jaeger agent (UDP)
-      - "${JAEGER_CONFIG_PORT:-5789}:5778"    # Config server
-      - "${JAEGER_GRPC_PORT:-14261}:14250"  # Jaeger gRPC
-      - "${JAEGER_HTTP_PORT:-14279}:14268"  # Jaeger HTTP
-      - "${ZIPKIN_PORT:-9422}:9411"    # Zipkin
+      - '${JAEGER_UI_PORT:-16697}:16686' # Jaeger UI
+      - '${JAEGER_OTLP_GRPC_PORT:-4329}:4317' # OTLP gRPC
+      - '${JAEGER_OTLP_HTTP_PORT:-4330}:4318' # OTLP HTTP
+      - '${JAEGER_AGENT_UDP_6831:-6843}:6831/udp' # Jaeger agent (UDP)
+      - '${JAEGER_AGENT_UDP_6832:-6844}:6832/udp' # Jaeger agent (UDP)
+      - '${JAEGER_CONFIG_PORT:-5789}:5778' # Config server
+      - '${JAEGER_GRPC_PORT:-14261}:14250' # Jaeger gRPC
+      - '${JAEGER_HTTP_PORT:-14279}:14268' # Jaeger HTTP
+      - '${ZIPKIN_PORT:-9422}:9411' # Zipkin
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:16686/ || exit 1"]
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-verbose --tries=1 --spider http://localhost:16686/ || exit 1',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -377,16 +410,63 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
-      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_ALLOW_SIGN_UP: 'false'
       GF_INSTALL_PLUGINS: grafana-piechart-panel
       GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}
     ports:
-      - "${GRAFANA_PORT:-3021}:3000"
+      - '${GRAFANA_PORT:-3021}:3000'
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     restart: unless-stopped
+    networks:
+      - jobs-service-network
+
+  woragis-jobs-resume-worker:
+    build:
+      context: ./workers/resume-worker
+      dockerfile: Dockerfile
+    container_name: woragis-jobs-resume-worker
+    depends_on:
+      woragis-jobs-database:
+        condition: service_healthy
+      woragis-jobs-rabbitmq:
+        condition: service_healthy
+      woragis-jobs-resume-service:
+        condition: service_healthy
+      woragis-jobs-ai-service:
+        condition: service_healthy
+    environment:
+      # RabbitMQ Configuration
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-woragis-jobs-rabbitmq}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      RABBITMQ_USER: ${RABBITMQ_USER:-woragis}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-woragis}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+      RABBITMQ_QUEUE_NAME: ${RABBITMQ_QUEUE_NAME:-resumes.queue}
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-woragis.tasks}
+      RABBITMQ_ROUTING_KEY: ${RABBITMQ_ROUTING_KEY:-resumes.generate}
+      RABBITMQ_PREFETCH_COUNT: ${RABBITMQ_PREFETCH_COUNT:-5}
+
+      # Database Configuration
+      DATABASE_URL: postgres://${POSTGRES_USER:-woragis}:${POSTGRES_PASSWORD:-password}@woragis-jobs-database:5432/${POSTGRES_DB:-jobs_service}?sslmode=disable
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-20}
+
+      # Services
+      RESUME_SERVICE_URL: ${RESUME_SERVICE_URL:-http://woragis-jobs-resume-service:8080}
+      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://woragis-jobs-ai-service:8000}
+
+      # Application
+      NODE_ENV: ${APP_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-5}
+      STORAGE_PATH: ${STORAGE_PATH:-/app/storage/resumes}
+
+    volumes:
+      - resume-worker-storage:/app/storage/resumes
+
+    restart: on-failure
     networks:
       - jobs-service-network
 
@@ -400,6 +480,7 @@ volumes:
   prometheus-data:
   resume-output:
   resume-results:
+  resume-worker-storage:
 
 networks:
   jobs-service-network:
