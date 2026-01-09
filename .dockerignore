@@ -1,0 +1,46 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# GitHub
+.github/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation
+*.md
+docs/
+
+# Development files
+.env
+.env.local
+.env.*.local
+*.log
+*.tmp
+
+# Test files
+*_test.go
+contract/
+integration/
+testing/
+
+# Build artifacts
+*.out
+dist/
+build/
+
+# Certificates
+*.pem
+*.key
+
+# Mac OS
+.DS_Store
+.AppleDouble
+.LSOverride

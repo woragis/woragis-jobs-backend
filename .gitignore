@@ -1,0 +1,43 @@
+# Go
+*.o
+*.a
+*.so
+.DS_Store
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.iml
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.test
+
+# Testing
+*.out
+.coverage
+.junit.xml
+test-output.log
+
+# Docker
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Workers
+workers/resume-worker/node_modules/
+workers/resume-worker/.env
+workers/resume-worker/dist/
