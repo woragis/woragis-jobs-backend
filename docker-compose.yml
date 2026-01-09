@@ -448,20 +448,61 @@ services:
       RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-woragis.tasks}
       RABBITMQ_ROUTING_KEY: ${RABBITMQ_ROUTING_KEY:-resumes.generate}
       RABBITMQ_PREFETCH_COUNT: ${RABBITMQ_PREFETCH_COUNT:-5}
+      RABBITMQ_DLQ_NAME: ${RABBITMQ_DLQ_NAME:-resumes.dlq}
+      RABBITMQ_DLQ_EXCHANGE: ${RABBITMQ_DLQ_EXCHANGE:-woragis.dlq}
 
-      # Database Configuration
+      # Database Configuration (Jobs DB for storing resumes)
       DATABASE_URL: postgres://${POSTGRES_USER:-woragis}:${POSTGRES_PASSWORD:-password}@woragis-jobs-database:5432/${POSTGRES_DB:-jobs_service}?sslmode=disable
       DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-20}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+
+      # Posts Database (for retrieving technical writings, posts, system designs)
+      DATABASE_URL_POSTS: ${DATABASE_URL_POSTS:-postgres://woragis:password@woragis-posts-database:5432/posts_service?sslmode=disable}
+      DATABASE_POSTS_POOL_SIZE: ${DATABASE_POSTS_POOL_SIZE:-10}
+      DATABASE_POSTS_SSL: ${DATABASE_POSTS_SSL:-false}
+
+      # Management Database (for retrieving projects, experiences)
+      DATABASE_URL_MANAGEMENT: ${DATABASE_URL_MANAGEMENT:-postgres://woragis:password@woragis-management-database:5432/management_service?sslmode=disable}
+      DATABASE_MANAGEMENT_POOL_SIZE: ${DATABASE_MANAGEMENT_POOL_SIZE:-10}
+      DATABASE_MANAGEMENT_SSL: ${DATABASE_MANAGEMENT_SSL:-false}
 
       # Services
-      RESUME_SERVICE_URL: ${RESUME_SERVICE_URL:-http://woragis-jobs-resume-service:8080}
-      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://woragis-jobs-ai-service:8000}
+      RESUME_SERVICE_URL: ${RESUME_SERVICE_URL:-http://woragis-resume-service:8080}
+      RESUME_SERVICE_TIMEOUT: ${RESUME_SERVICE_TIMEOUT:-300000}
+      RESUME_SERVICE_API_KEY: ${RESUME_SERVICE_API_KEY:-}
+
+      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://woragis-ai-service:8000}
+      AI_SERVICE_TIMEOUT: ${AI_SERVICE_TIMEOUT:-60000}
+      AI_SERVICE_API_KEY: ${AI_SERVICE_API_KEY:-}
+      AI_PARSE_ENDPOINT: ${AI_PARSE_ENDPOINT:-/api/v1/parse_resume}
 
       # Application
       NODE_ENV: ${APP_ENV:-production}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-5}
       STORAGE_PATH: ${STORAGE_PATH:-/app/storage/resumes}
+
+      # Retry Configuration
+      RETRY_MAX_ATTEMPTS: ${RETRY_MAX_ATTEMPTS:-3}
+      RETRY_INITIAL_DELAY: ${RETRY_INITIAL_DELAY:-1000}
+      RETRY_MAX_DELAY: ${RETRY_MAX_DELAY:-30000}
+      RETRY_BACKOFF_MULTIPLIER: ${RETRY_BACKOFF_MULTIPLIER:-2}
+
+      # Circuit Breaker
+      CIRCUIT_BREAKER_ENABLED: ${CIRCUIT_BREAKER_ENABLED:-true}
+      CIRCUIT_BREAKER_FAILURE_THRESHOLD: ${CIRCUIT_BREAKER_FAILURE_THRESHOLD:-5}
+      CIRCUIT_BREAKER_RESET_TIMEOUT: ${CIRCUIT_BREAKER_RESET_TIMEOUT:-60000}
+
+      # Observability
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      METRICS_PORT: ${METRICS_PORT:-9090}
+      JAEGER_ENABLED: ${JAEGER_ENABLED:-true}
+      JAEGER_SERVICE_NAME: ${JAEGER_SERVICE_NAME:-resume-worker}
+      JAEGER_AGENT_HOST: ${JAEGER_AGENT_HOST:-woragis-jobs-jaeger}
+      JAEGER_AGENT_PORT: ${JAEGER_AGENT_PORT:-6831}
+
+    ports:
+      - '${WORKER_METRICS_PORT:-9091}:9090' # Prometheus metrics
 
     volumes:
       - resume-worker-storage:/app/storage/resumes
