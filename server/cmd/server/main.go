@@ -178,7 +178,7 @@ func main() {
 	}
 
 	// Setup jobs domain routes
-	jobsdomain.SetupRoutes(api, dbManager.GetPostgres(), jwtManager, aiServiceURL, slogLogger)
+	jobsdomain.SetupRoutes(api, dbManager, jwtManager, aiServiceURL, slogLogger)
 
 	// Setup graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

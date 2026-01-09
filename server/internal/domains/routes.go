@@ -4,20 +4,21 @@ import (
 	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 
+	"woragis-jobs-service/internal/database"
 	"woragis-jobs-service/internal/domains/jobapplications"
 	"woragis-jobs-service/internal/domains/jobapplications/interviewstages"
 	"woragis-jobs-service/internal/domains/jobapplications/responses"
-	"woragis-jobs-service/internal/domains/resumes"
 	"woragis-jobs-service/internal/domains/jobwebsites"
+	"woragis-jobs-service/internal/domains/resumes"
 	"woragis-jobs-service/pkg/aiservice"
 	authPkg "woragis-jobs-service/pkg/auth"
 	"woragis-jobs-service/pkg/middleware"
 )
 
 // SetupRoutes sets up all jobs service routes
-func SetupRoutes(api fiber.Router, db *gorm.DB, jwtManager *authPkg.JWTManager, aiServiceURL string, logger *slog.Logger) {
+func SetupRoutes(api fiber.Router, dbManager *database.Manager, jwtManager *authPkg.JWTManager, aiServiceURL string, logger *slog.Logger) {
+	db := dbManager.GetPostgres()
 	// Apply JWT validation middleware to all routes (local validation, no HTTP calls)
 	if jwtManager != nil {
 		api.Use(middleware.JWTMiddleware(middleware.JWTConfig{
@@ -32,7 +33,23 @@ func SetupRoutes(api fiber.Router, db *gorm.DB, jwtManager *authPkg.JWTManager, 
 
 	// Initialize services
 	jobAppService := jobapplications.NewService(jobAppRepo, nil, logger) // Queue will be nil for now
-	resumeService := resumes.NewService(resumeRepo, logger)
+	
+	// Initialize RabbitMQ publisher for resume jobs
+	var resumePublisher resumes.RabbitMQPublisher = resumes.NewNoOpPublisher(logger)
+	if dbManager.GetRabbitMQ() != nil {
+		var err error
+		resumePublisher, err = resumes.NewRabbitMQPublisher(dbManager.GetRabbitMQ().Channel, logger)
+		if err != nil {
+			logger.Warn("failed to initialize RabbitMQ publisher", "error", err)
+			resumePublisher = resumes.NewNoOpPublisher(logger)
+		} else {
+			logger.Info("RabbitMQ publisher initialized successfully")
+		}
+	} else {
+		logger.Warn("RabbitMQ connection not available, using no-op publisher")
+	}
+	
+	resumeService := resumes.NewService(resumeRepo, resumePublisher, logger)
 	jobWebsiteService := jobwebsites.NewService(jobWebsiteRepo, logger)
 
 	// Initialize AI service client for cover letter generation
