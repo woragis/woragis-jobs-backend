@@ -23,19 +23,27 @@ type Service interface {
 	GetFeaturedResume(ctx context.Context, userID uuid.UUID) (*Resume, error)
 	GetBestResume(ctx context.Context, userID uuid.UUID) (*Resume, error) // Returns main > featured > most recent
 	RecalculateResumeMetrics(ctx context.Context, resumeID uuid.UUID) error
+	// Resume generation operations
+	GenerateResume(ctx context.Context, userID uuid.UUID, jobDescription string, metadata map[string]interface{}) (jobID uuid.UUID, err error)
+	GetResumeGenerationJobStatus(ctx context.Context, jobID uuid.UUID) (*ResumeGenerationJob, error)
+	ListUserResumeGenerationJobs(ctx context.Context, userID uuid.UUID) ([]ResumeGenerationJob, error)
+	CompleteResumeGeneration(ctx context.Context, jobID uuid.UUID, resumeID uuid.UUID) error
+	FailResumeGeneration(ctx context.Context, jobID uuid.UUID, errorMessage string) error
 }
 
 // service implements Service.
 type service struct {
-	repo   Repository
-	logger *slog.Logger
+	repo                 Repository
+	rabbitMQPublisher    RabbitMQPublisher
+	logger               *slog.Logger
 }
 
 // NewService creates a new resume service.
-func NewService(repo Repository, logger *slog.Logger) Service {
+func NewService(repo Repository, publisher RabbitMQPublisher, logger *slog.Logger) Service {
 	return &service{
-		repo:   repo,
-		logger: logger,
+		repo:                 repo,
+		rabbitMQPublisher:    publisher,
+		logger:               logger,
 	}
 }
 
@@ -211,5 +219,96 @@ func (s *service) RecalculateResumeMetrics(ctx context.Context, resumeID uuid.UU
 	}
 	
 	return s.repo.UpdateResumeMetrics(ctx, resumeID, metrics)
+}
+
+// GenerateResume creates a resume generation job and publishes it to the queue.
+func (s *service) GenerateResume(ctx context.Context, userID uuid.UUID, jobDescription string, metadata map[string]interface{}) (uuid.UUID, error) {
+	// Create a new resume generation job
+	job := NewResumeGenerationJob(userID, jobDescription, metadata)
+	
+	// Persist the job to the database
+	if err := s.repo.CreateResumeGenerationJob(ctx, job); err != nil {
+		s.logger.Error("failed to create resume generation job", "error", err, "userId", userID)
+		return uuid.Nil, err
+	}
+	
+	// Convert to ResumeWorkerJob for publishing
+	workerJob := &ResumeWorkerJob{
+		JobID:          job.ID.String(),
+		UserID:         job.UserID.String(),
+		JobDescription: job.JobDescription,
+		Metadata:       job.Metadata,
+	}
+	
+	// Publish the job to RabbitMQ for the worker to process
+	if err := s.rabbitMQPublisher.PublishResumeGenerationJob(ctx, workerJob); err != nil {
+		s.logger.Error("failed to publish resume generation job", "error", err, "jobId", job.ID)
+		// Mark the job as failed since we couldn't queue it
+		job.MarkFailed("Failed to queue job for processing", "QUEUE_ERROR")
+		_ = s.repo.UpdateResumeGenerationJob(ctx, job)
+		return uuid.Nil, err
+	}
+	
+	s.logger.Info("resume generation job created and queued", "jobId", job.ID, "userId", userID)
+	return job.ID, nil
+}
+
+// GetResumeGenerationJobStatus retrieves the status of a resume generation job.
+func (s *service) GetResumeGenerationJobStatus(ctx context.Context, jobID uuid.UUID) (*ResumeGenerationJob, error) {
+	job, err := s.repo.GetResumeGenerationJob(ctx, jobID)
+	if err != nil {
+		s.logger.Error("failed to get resume generation job status", "error", err, "jobId", jobID)
+		return nil, err
+	}
+	
+	return job, nil
+}
+
+// ListUserResumeGenerationJobs retrieves all resume generation jobs for a user.
+func (s *service) ListUserResumeGenerationJobs(ctx context.Context, userID uuid.UUID) ([]ResumeGenerationJob, error) {
+	jobs, err := s.repo.ListUserResumeGenerationJobs(ctx, userID)
+	if err != nil {
+		s.logger.Error("failed to list user resume generation jobs", "error", err, "userId", userID)
+		return nil, err
+	}
+	
+	return jobs, nil
+}
+
+// CompleteResumeGeneration marks a resume generation job as completed with the generated resume ID.
+func (s *service) CompleteResumeGeneration(ctx context.Context, jobID uuid.UUID, resumeID uuid.UUID) error {
+	job, err := s.repo.GetResumeGenerationJob(ctx, jobID)
+	if err != nil {
+		s.logger.Error("failed to get resume generation job", "error", err, "jobId", jobID)
+		return err
+	}
+	
+	job.MarkCompleted(resumeID)
+	if err := s.repo.UpdateResumeGenerationJob(ctx, job); err != nil {
+		s.logger.Error("failed to update resume generation job", "error", err, "jobId", jobID)
+		return err
+	}
+	
+	s.logger.Info("resume generation job completed", "jobId", jobID, "resumeId", resumeID)
+	return nil
+}
+
+// FailResumeGeneration marks a resume generation job as failed with an error message.
+func (s *service) FailResumeGeneration(ctx context.Context, jobID uuid.UUID, errorMessage string) error {
+	job, err := s.repo.GetResumeGenerationJob(ctx, jobID)
+	if err != nil {
+		s.logger.Error("failed to get resume generation job", "error", err, "jobId", jobID)
+		return err
+	}
+	
+	// Use a generic error code if none provided
+	job.MarkFailed(errorMessage, "GENERATION_ERROR")
+	if err := s.repo.UpdateResumeGenerationJob(ctx, job); err != nil {
+		s.logger.Error("failed to update resume generation job", "error", err, "jobId", jobID)
+		return err
+	}
+	
+	s.logger.Info("resume generation job failed", "jobId", jobID, "error", errorMessage)
+	return nil
 }
 
