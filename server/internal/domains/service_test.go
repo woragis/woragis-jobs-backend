@@ -190,13 +190,13 @@ func TestService_Register_Success(t *testing.T) {
 
 	// Mock repository calls
 	mockRepo.On("getUserByEmail", req.Email).Return(nil, ErrUserNotFound)
-	mockRepo.On("createUser", mock.AnythingOfType("*auth.User")).Return(nil).Run(func(args mock.Arguments) {
+	mockRepo.On("createUser", mock.AnythingOfType("*jobs.User")).Return(nil).Run(func(args mock.Arguments) {
 		user := args.Get(0).(*User)
 		user.ID = userID
 		createdUser = user
 	})
-	mockRepo.On("createProfile", mock.AnythingOfType("*auth.Profile")).Return(nil)
-	mockRepo.On("createSession", mock.AnythingOfType("*auth.Session")).Return(nil)
+	mockRepo.On("createProfile", mock.AnythingOfType("*jobs.Profile")).Return(nil)
+	mockRepo.On("createSession", mock.AnythingOfType("*jobs.Session")).Return(nil)
 	mockRepo.On("updateLastLogin", userID).Return(nil)
 	mockRepo.On("getUserByID", userID).Return(createdUser, nil)
 
@@ -257,6 +257,9 @@ func TestService_Register_WeakPassword(t *testing.T) {
 		LastName:  "User",
 	}
 
+	// Mock repository - getUserByEmail should not be called for weak passwords, but set it up anyway
+	mockRepo.On("getUserByEmail", req.Email).Return(nil, ErrUserNotFound).Maybe()
+
 	response, err := service.register(req)
 
 	assert.Error(t, err)
@@ -291,7 +294,7 @@ func TestService_Login_Success(t *testing.T) {
 	// Mock repository calls
 	mockRepo.On("getUserByEmail", req.Email).Return(user, nil)
 	mockRepo.On("updateLastLogin", user.ID).Return(nil)
-	mockRepo.On("createSession", mock.AnythingOfType("*auth.Session")).Return(nil)
+	mockRepo.On("createSession", mock.AnythingOfType("*jobs.Session")).Return(nil)
 
 	response, err := service.login(req, "test-agent", "127.0.0.1")
 
@@ -384,7 +387,6 @@ func TestService_RefreshToken_Success(t *testing.T) {
 
 	mockRepo.On("getSessionByRefreshToken", refreshToken).Return(session, nil)
 	mockRepo.On("getUserByID", userID).Return(user, nil)
-	mockRepo.On("updateSession", mock.AnythingOfType("*auth.Session")).Return(nil)
 
 	response, err := service.refreshToken(refreshToken)
 
