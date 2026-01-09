@@ -32,6 +32,7 @@ func MigrateJobsTables(db *gorm.DB) error {
 	// Migrate resumes tables
 	if err := db.AutoMigrate(
 		&resumes.Resume{},
+		&resumes.ResumeGenerationJob{},
 	); err != nil {
 		return err
 	}
