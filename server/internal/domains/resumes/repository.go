@@ -30,6 +30,11 @@ type Repository interface {
 	UnmarkAllAsMain(ctx context.Context, userID uuid.UUID) error
 	CalculateResumeMetrics(ctx context.Context, resumeID uuid.UUID) (*ResumeMetrics, error)
 	UpdateResumeMetrics(ctx context.Context, resumeID uuid.UUID, metrics *ResumeMetrics) error
+	// Resume generation job operations
+	CreateResumeGenerationJob(ctx context.Context, job *ResumeGenerationJob) error
+	GetResumeGenerationJob(ctx context.Context, jobID uuid.UUID) (*ResumeGenerationJob, error)
+	UpdateResumeGenerationJob(ctx context.Context, job *ResumeGenerationJob) error
+	ListUserResumeGenerationJobs(ctx context.Context, userID uuid.UUID) ([]ResumeGenerationJob, error)
 }
 
 // gormRepository implements Repository using GORM.
@@ -234,4 +239,35 @@ func (r *gormRepository) UpdateResumeMetrics(ctx context.Context, resumeID uuid.
 			"offer_rate":        metrics.OfferRate,
 		}).Error
 }
+
+// CreateResumeGenerationJob creates a new resume generation job record in PostgreSQL
+func (r *gormRepository) CreateResumeGenerationJob(ctx context.Context, job *ResumeGenerationJob) error {
+	return r.db.WithContext(ctx).Create(job).Error
+}
+
+// GetResumeGenerationJob retrieves a resume generation job by ID
+func (r *gormRepository) GetResumeGenerationJob(ctx context.Context, jobID uuid.UUID) (*ResumeGenerationJob, error) {
+	var job ResumeGenerationJob
+	err := r.db.WithContext(ctx).Where("id = ?", jobID).First(&job).Error
+	if err != nil {
+		return nil, err
+	}
+	return &job, nil
+}
+
+// UpdateResumeGenerationJob updates an existing resume generation job
+func (r *gormRepository) UpdateResumeGenerationJob(ctx context.Context, job *ResumeGenerationJob) error {
+	return r.db.WithContext(ctx).Save(job).Error
+}
+
+// ListUserResumeGenerationJobs lists all resume generation jobs for a user, ordered by newest first
+func (r *gormRepository) ListUserResumeGenerationJobs(ctx context.Context, userID uuid.UUID) ([]ResumeGenerationJob, error) {
+	var jobs []ResumeGenerationJob
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Find(&jobs).Error
+	return jobs, err
+}
+
 
