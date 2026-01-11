@@ -87,14 +87,14 @@ func CSRFMiddleware(config CSRFConfig) fiber.Handler {
 				})
 			}
 
-			// Store token in Redis
+			// Store token in Redis with token as key (self-contained validation)
 			if config.RedisClient != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 				defer cancel()
 
-				// Use session ID or IP address as key
-				sessionKey := fmt.Sprintf("csrf:%s", c.IP())
-				if err := config.RedisClient.Set(ctx, sessionKey, token, config.TokenTTL).Err(); err != nil {
+				// Use token itself as key for more reliable validation
+				sessionKey := fmt.Sprintf("csrf:token:%s", token)
+				if err := config.RedisClient.Set(ctx, sessionKey, "valid", config.TokenTTL).Err(); err != nil {
 					// Log error but continue (graceful degradation)
 					c.Locals("csrf_error", "Failed to store CSRF token")
 				}
@@ -106,8 +106,9 @@ func CSRFMiddleware(config CSRFConfig) fiber.Handler {
 				Value:    token,
 				HTTPOnly: false, // Must be readable by JavaScript for API clients
 				Secure:   config.SecureCookie, // Configurable based on environment
-				SameSite: "Strict",
+				SameSite: "Lax", // Changed from Strict to Lax for better compatibility
 				MaxAge:   int(config.TokenTTL.Seconds()),
+				Path:     "/", // Ensure cookie is available for all paths
 			})
 
 			// Also set in response header for API clients
@@ -145,9 +146,10 @@ func CSRFMiddleware(config CSRFConfig) fiber.Handler {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 
-			sessionKey := fmt.Sprintf("csrf:%s", c.IP())
-			storedToken, err := config.RedisClient.Get(ctx, sessionKey).Result()
-			if err == redis.Nil {
+			// Validate token exists in Redis
+			sessionKey := fmt.Sprintf("csrf:token:%s", token)
+			exists, err := config.RedisClient.Exists(ctx, sessionKey).Result()
+			if err == redis.Nil || exists == 0 {
 				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 					"error": ErrCSRFTokenExpired.Error(),
 				})
@@ -158,13 +160,7 @@ func CSRFMiddleware(config CSRFConfig) fiber.Handler {
 				return c.Next()
 			}
 
-			if storedToken != token {
-				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-					"error": ErrCSRFTokenInvalid.Error(),
-				})
-			}
-
-			// Token is valid, extend TTL
+			// Token is valid, extend TTL for continued use
 			config.RedisClient.Expire(ctx, sessionKey, config.TokenTTL)
 		}
 
