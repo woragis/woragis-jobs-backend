@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -91,10 +92,14 @@ func Init(cfg Config) (func(), error) {
 	// It will automatically add http:// and /v1/traces path
 	endpointHost := extractHostPort(otlpEndpoint)
 	
-	ctx := context.Background()
+	// Use a timeout context to prevent hanging if Jaeger is unavailable
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
 	exp, err := otlptracehttp.New(ctx,
 		otlptracehttp.WithEndpoint(endpointHost),
 		otlptracehttp.WithInsecure(), // Use TLS in production
+		otlptracehttp.WithTimeout(5*time.Second), // Set HTTP request timeout
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
@@ -103,8 +108,12 @@ func Init(cfg Config) (func(), error) {
 	// Create resource with service information
 	// Note: We create a fresh resource instead of merging with resource.Default()
 	// to avoid schema URL conflicts between different semconv versions
+	// Use a timeout context for resource creation as well
+	resourceCtx, resourceCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer resourceCancel()
+	
 	res, err := resource.New(
-		context.Background(),
+		resourceCtx,
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String(cfg.ServiceName),
 			semconv.ServiceVersionKey.String(cfg.ServiceVersion),

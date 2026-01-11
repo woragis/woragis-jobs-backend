@@ -304,16 +304,17 @@ func main() {
 	}
 
 	// Initialize OpenTelemetry tracing
+	slogLogger.Info("initializing tracing...")
 	tracingShutdown, err := apptracing.Init(apptracing.Config{
 		ServiceName:    cfg.AppName,
-		ServiceVersion: "1.0.0", // TODO: Get from build info
+		ServiceVersion: "1.4.1",
 		Environment:    env,
 		JaegerEndpoint: os.Getenv("JAEGER_ENDPOINT"), // Defaults to http://jaeger:4318
 	})
 	if err != nil {
 		slogLogger.Warn("failed to initialize tracing", "error", err)
 	} else {
-		slogLogger.Info("tracing initialized", "service", cfg.AppName)
+		slogLogger.Info("tracing initialized successfully", "service", cfg.AppName)
 		defer func() {
 			if tracingShutdown != nil {
 				tracingShutdown()
@@ -322,10 +323,12 @@ func main() {
 	}
 
 	// Load database and Redis configs
+	slogLogger.Info("loading database and redis configurations...")
 	dbCfg := config.LoadDatabaseConfig()
 	redisCfg := config.LoadRedisConfig()
 
 	// Initialize database manager
+	slogLogger.Info("initializing database manager...")
 	dbManager, err := database.NewFromConfig(dbCfg, redisCfg)
 	if err != nil {
 		slogLogger.Error("failed to initialize database manager", "error", err)
@@ -334,6 +337,7 @@ func main() {
 	defer dbManager.Close()
 
 	// Perform initial health check
+	slogLogger.Info("performing initial health check...")
 	if err := dbManager.HealthCheck(); err != nil {
 		slogLogger.Warn("Database health check failed", "error", err)
 	} else {
@@ -341,13 +345,16 @@ func main() {
 	}
 
 	// Run migrations
+	slogLogger.Info("running database migrations...")
 	if err := jobsdomain.MigrateJobsTables(dbManager.GetPostgres()); err != nil {
 		slogLogger.Error("failed to run jobs migrations", "error", err)
 		os.Exit(1)
 	}
 
 	// Create Fiber app
+	slogLogger.Info("creating fiber app...")
 	app := config.CreateFiberApp(cfg)
+	slogLogger.Info("fiber app created successfully")
 
 	// Recovery middleware (early in chain)
 	app.Use(recover.New())
@@ -441,7 +448,9 @@ func main() {
 	}
 
 	// Setup jobs domain routes
+	slogLogger.Info("setting up routes...")
 	jobsdomain.SetupRoutes(api, dbManager, jwtManager, aiServiceURL, slogLogger)
+	slogLogger.Info("routes configured successfully")
 
 	// Setup graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -450,12 +459,16 @@ func main() {
 	// Start server in a goroutine
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Port)
-		slogLogger.Info("starting jobs service", "addr", addr, "env", env)
+		slogLogger.Info("attempting to start server", "addr", addr, "env", env)
 		if err := app.Listen(addr); err != nil {
 			slogLogger.Error("failed to start server", "error", err)
 			os.Exit(1)
 		}
 	}()
+
+	// Give the server a moment to start and then log ready message
+	time.Sleep(100 * time.Millisecond)
+	slogLogger.Info("✓ SERVER READY - Jobs service is listening and accepting connections", "port", cfg.Port, "env", env)
 
 	// Wait for interrupt signal
 	<-ctx.Done()
