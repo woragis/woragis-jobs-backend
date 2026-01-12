@@ -69,7 +69,21 @@ func SetupRoutes(api fiber.Router, dbManager *database.Manager, jwtManager *auth
 	} else {
 		jobAppHandler = jobapplications.NewHandler(jobAppService, logger)
 	}
-	resumeHandler := resumes.NewHandler(resumeService, nil, "", logger) // Queue and baseFilePath will be nil/empty for now
+	
+	// Initialize resume queue for background job processing
+	var resumeQueue resumes.Queue
+	if dbManager.GetRedis() != nil {
+		resumeQueue = resumes.NewRedisQueue(dbManager.GetRedis())
+		logger.Info("Resume queue initialized successfully with Redis")
+	} else {
+		logger.Warn("Redis connection not available, resume queue will be nil")
+	}
+	
+	// Create adapter to bridge job application service to resume handler
+	jobAppServiceAdapter := newJobApplicationServiceAdapter(jobAppService)
+	
+	// Use NewHandlerWithJobApplicationService to enable resume generation
+	resumeHandler := resumes.NewHandlerWithJobApplicationService(resumeService, jobAppServiceAdapter, resumeQueue, "", logger)
 	jobWebsiteHandler := jobwebsites.NewHandler(jobWebsiteService, logger)
 
 	// Initialize subdomain handlers
