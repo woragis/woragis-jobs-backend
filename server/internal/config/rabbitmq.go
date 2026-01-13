@@ -26,8 +26,12 @@ func LoadRabbitMQConfig() *RabbitMQConfig {
 		port := getEnv("RABBITMQ_PORT", "5672")
 		vhost := getEnv("RABBITMQ_VHOST", "/")
 		
-		// Remove leading slash if present
-		if len(vhost) > 0 && vhost[0] == '/' {
+		// URL encode the vhost for the connection string
+		// For RabbitMQ, "/" becomes "%2F" in the URL, but other vhosts keep their slashes
+		if vhost == "/" {
+			vhost = ""
+		} else if len(vhost) > 0 && vhost[0] == '/' {
+			// Keep the slash but remove it for URL encoding (will be added back as %2F)
 			vhost = vhost[1:]
 		}
 		
