@@ -38,6 +38,16 @@ type service struct {
 	logger               *slog.Logger
 }
 
+// getStringFromMetadata safely extracts a string value from metadata map
+func getStringFromMetadata(metadata map[string]interface{}, key string) string {
+	if val, ok := metadata[key]; ok {
+		if str, ok := val.(string); ok {
+			return str
+		}
+	}
+	return ""
+}
+
 // NewService creates a new resume service.
 func NewService(repo Repository, publisher RabbitMQPublisher, logger *slog.Logger) Service {
 	return &service{
@@ -233,9 +243,20 @@ func (s *service) GenerateResume(ctx context.Context, userID uuid.UUID, jobDescr
 	}
 	
 	// Convert to ResumeWorkerJob for publishing
+	userEmail := getStringFromMetadata(metadata, "user_email")
+	userName := getStringFromMetadata(metadata, "user_name")
+	
+	s.logger.Info("Preparing to publish resume generation job",
+		slog.String("jobId", job.ID.String()),
+		slog.String("userEmail", userEmail),
+		slog.String("userName", userName),
+	)
+	
 	workerJob := &ResumeWorkerJob{
 		JobID:          job.ID.String(),
 		UserID:         job.UserID.String(),
+		UserEmail:      userEmail,
+		UserName:       userName,
 		JobDescription: job.JobDescription,
 		Metadata:       job.Metadata,
 	}

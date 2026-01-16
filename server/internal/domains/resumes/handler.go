@@ -2,11 +2,15 @@ package resumes
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,11 +63,11 @@ type JobApplication struct {
 }
 
 type handler struct {
-	service              Service
+	service               Service
 	jobApplicationService JobApplicationService // Optional: for generating resumes
-	queue                Queue                  // Redis queue for resume generation jobs
-	logger               *slog.Logger
-	baseFilePath         string                 // Base path where resume files are stored
+	queue                 Queue                 // Redis queue for resume generation jobs
+	logger                *slog.Logger
+	baseFilePath          string // Base path where resume files are stored
 }
 
 var _ Handler = (*handler)(nil)
@@ -81,11 +85,11 @@ func NewHandler(service Service, queue Queue, baseFilePath string, logger *slog.
 // NewHandlerWithJobApplicationService constructs a resume handler with job application service.
 func NewHandlerWithJobApplicationService(service Service, jobApplicationService JobApplicationService, queue Queue, baseFilePath string, logger *slog.Logger) Handler {
 	return &handler{
-		service:              service,
+		service:               service,
 		jobApplicationService: jobApplicationService,
-		queue:                queue,
-		logger:               logger,
-		baseFilePath:         baseFilePath,
+		queue:                 queue,
+		logger:                logger,
+		baseFilePath:          baseFilePath,
 	}
 }
 
@@ -752,19 +756,35 @@ func (h *handler) GenerateResume(c *fiber.Ctx) error {
 		language = "en"
 	}
 
-	// Create job
-	job := &ResumeJob{
-		UserID:          userID,
-		JobApplicationID: jobAppID,
-		JobDescription:  jobDescription,
-		JobTitle:        jobApp.JobTitle,
-		Language:        language,
-		MaxRetries:      3,
+	// Extract user info from JWT context
+	userEmail, err := middleware.GetUserEmailFromFiberContext(c)
+	if err != nil {
+		userEmail = "" // Optional field
+	}
+	userName, err := middleware.GetUserNameFromFiberContext(c)
+	if err != nil {
+		userName = "" // Optional field
 	}
 
-	// Enqueue job
-	if err := h.queue.EnqueueJob(c.Context(), job); err != nil {
-		h.logger.Error("failed to enqueue resume generation job",
+	h.logger.Info("Extracted user info from JWT",
+		slog.String("userEmail", userEmail),
+		slog.String("userName", userName),
+	)
+
+	// Prepare metadata for service
+	metadata := map[string]interface{}{
+		"job_application_id": jobAppID.String(),
+		"job_title":          jobApp.JobTitle,
+		"company_name":       jobApp.CompanyName,
+		"language":           language,
+		"user_email":         userEmail,
+		"user_name":          userName,
+	}
+
+	// Call service to generate resume (which will publish to RabbitMQ)
+	jobID, err := h.service.GenerateResume(c.Context(), userID, jobDescription, metadata)
+	if err != nil {
+		h.logger.Error("failed to generate resume",
 			slog.String("user_id", userID.String()),
 			slog.String("job_application_id", jobAppID.String()),
 			slog.Any("error", err),
@@ -773,14 +793,14 @@ func (h *handler) GenerateResume(c *fiber.Ctx) error {
 	}
 
 	h.logger.Info("Resume generation job enqueued",
-		slog.String("job_id", job.ID),
+		slog.String("job_id", jobID.String()),
 		slog.String("user_id", userID.String()),
 		slog.String("job_application_id", jobAppID.String()),
 	)
 
 	return response.Success(c, fiber.StatusAccepted, fiber.Map{
-		"jobId":  job.ID,
-		"status": "pending",
+		"jobId":   jobID.String(),
+		"status":  "pending",
 		"message": "Resume generation job enqueued",
 	})
 }
@@ -830,12 +850,17 @@ func (h *handler) GetJobStatus(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusUnauthorized, 0, fiber.Map{"message": "authentication required"})
 	}
 
-	jobID := c.Params("id")
-	if jobID == "" {
+	jobIDStr := c.Params("id")
+	if jobIDStr == "" {
 		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{"message": "job ID is required"})
 	}
 
-	job, err := h.queue.GetJob(c.Context(), jobID)
+	jobID, err := uuid.Parse(jobIDStr)
+	if err != nil {
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{"message": "invalid job ID"})
+	}
+
+	job, err := h.service.GetResumeGenerationJobStatus(c.Context(), jobID)
 	if err != nil {
 		return response.Error(c, fiber.StatusNotFound, 0, fiber.Map{"message": "job not found"})
 	}
@@ -846,22 +871,18 @@ func (h *handler) GetJobStatus(c *fiber.Ctx) error {
 	}
 
 	responseData := fiber.Map{
-		"id":         job.ID,
-		"status":     job.Status,
-		"retryCount": job.RetryCount,
-		"maxRetries": job.MaxRetries,
-		"createdAt":  job.CreatedAt,
-		"updatedAt":  job.UpdatedAt,
+		"id":        job.ID,
+		"status":    job.Status,
+		"createdAt": job.CreatedAt,
+		"updatedAt": job.UpdatedAt,
 	}
 
-	if job.LastError != "" {
-		responseData["error"] = job.LastError
-		responseData["errorType"] = job.LastErrorType
-		responseData["errorAt"] = job.LastErrorAt
+	if job.ErrorMessage != "" {
+		responseData["error"] = job.ErrorMessage
 	}
 
-	if job.Result != nil {
-		responseData["result"] = job.Result
+	if job.ResumeID != nil {
+		responseData["resumeId"] = job.ResumeID
 	}
 
 	return response.Success(c, fiber.StatusOK, responseData)
@@ -915,8 +936,8 @@ func (h *handler) RetryJob(c *fiber.Ctx) error {
 	)
 
 	return response.Success(c, fiber.StatusOK, fiber.Map{
-		"jobId":  job.ID,
-		"status": "pending",
+		"jobId":   job.ID,
+		"status":  "pending",
 		"message": "Job retried",
 	})
 }
@@ -965,8 +986,8 @@ func (h *handler) CancelJob(c *fiber.Ctx) error {
 	)
 
 	return response.Success(c, fiber.StatusOK, fiber.Map{
-		"jobId":  job.ID,
-		"status": "failed",
+		"jobId":   job.ID,
+		"status":  "failed",
 		"message": "Job cancelled",
 	})
 }
@@ -979,7 +1000,7 @@ func (h *handler) CompleteResumeGeneration(c *fiber.Ctx) error {
 	if apiKey == "" {
 		apiKey = c.Get("x-api-key")
 	}
-	
+
 	expectedAPIKey := os.Getenv("PUBLIC_API_KEY")
 	if expectedAPIKey == "" {
 		h.logger.Warn("PUBLIC_API_KEY not set, allowing request without API key validation")
@@ -994,7 +1015,29 @@ func (h *handler) CompleteResumeGeneration(c *fiber.Ctx) error {
 		)
 		return response.Error(c, fiber.StatusUnauthorized, 0, fiber.Map{"message": "unauthorized: invalid API key"})
 	}
-	
+
+	// Validate HMAC signature to ensure request authenticity and payload integrity
+	webhookSecret := os.Getenv("RESUME_WEBHOOK_SECRET")
+	signature := c.Get("X-Signature")
+	timestampStr := c.Get("X-Timestamp")
+	if webhookSecret == "" {
+		h.logger.Warn("RESUME_WEBHOOK_SECRET not set, allowing request without signature validation")
+	} else {
+		if signature == "" || timestampStr == "" {
+			return response.Error(c, fiber.StatusUnauthorized, 0, fiber.Map{"message": "unauthorized: missing signature"})
+		}
+
+		ts, err := strconv.ParseInt(timestampStr, 10, 64)
+		if err != nil {
+			return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{"message": "invalid signature timestamp"})
+		}
+		// Reject requests older than 5 minutes to prevent replay
+		now := time.Now().Unix()
+		if ts < now-300 || ts > now+300 {
+			return response.Error(c, fiber.StatusUnauthorized, 0, fiber.Map{"message": "unauthorized: signature expired"})
+		}
+	}
+
 	// Parse multipart form
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -1066,19 +1109,49 @@ func (h *handler) CompleteResumeGeneration(c *fiber.Ctx) error {
 	filePath := filepath.Join("uploads", safeFilename)
 	fullPath := filepath.Join(h.baseFilePath, filePath)
 
-	// Save file
-	if err := c.SaveFile(fileHeader, fullPath); err != nil {
-		h.logger.Error("failed to save file", slog.Any("error", err))
+	// Stream file to disk while hashing for integrity verification
+	src, err := fileHeader.Open()
+	if err != nil {
+		return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{"message": "failed to open uploaded file"})
+	}
+	defer src.Close()
+
+	dst, err := os.Create(fullPath)
+	if err != nil {
+		h.logger.Error("failed to create file", slog.Any("error", err))
 		return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{"message": "failed to save file"})
 	}
 
-	// Get file size
+	hasher := sha256.New()
+	if _, err := io.Copy(io.MultiWriter(dst, hasher), src); err != nil {
+		dst.Close()
+		os.Remove(fullPath)
+		h.logger.Error("failed to save file", slog.Any("error", err))
+		return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{"message": "failed to save file"})
+	}
+	if err := dst.Close(); err != nil {
+		os.Remove(fullPath)
+		return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{"message": "failed to finalize file"})
+	}
+
+	fileHash := hex.EncodeToString(hasher.Sum(nil))
 	fileInfo, err := os.Stat(fullPath)
 	if err != nil {
-		h.logger.Error("failed to get file info", slog.Any("error", err))
-		// Clean up file
 		os.Remove(fullPath)
 		return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{"message": "failed to get file info"})
+	}
+
+	// Verify HMAC signature after computing file hash
+	if webhookSecret != "" {
+		payload := fmt.Sprintf("%s:%s:%s:%s:%s:%s", jobID, jobApplicationIDStr, userIDStr, title, fileHash, timestampStr)
+		hmacHasher := hmac.New(sha256.New, []byte(webhookSecret))
+		hmacHasher.Write([]byte(payload))
+		expectedSig := hex.EncodeToString(hmacHasher.Sum(nil))
+
+		if !hmac.Equal([]byte(strings.ToLower(signature)), []byte(expectedSig)) {
+			os.Remove(fullPath)
+			return response.Error(c, fiber.StatusUnauthorized, 0, fiber.Map{"message": "unauthorized: invalid signature"})
+		}
 	}
 
 	// Create resume entry
@@ -1129,4 +1202,3 @@ func (h *handler) CompleteResumeGeneration(c *fiber.Ctx) error {
 		"message":  "Resume saved successfully",
 	})
 }
-

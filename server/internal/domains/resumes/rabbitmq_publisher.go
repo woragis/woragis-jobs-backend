@@ -19,6 +19,8 @@ type RabbitMQPublisher interface {
 type ResumeWorkerJob struct {
 	JobID          string                 `json:"jobId"`
 	UserID         string                 `json:"userId"`
+	UserEmail      string                 `json:"userEmail"`
+	UserName       string                 `json:"userName"`
 	JobDescription string                 `json:"jobDescription"`
 	Metadata       map[string]interface{} `json:"metadata"`
 }
@@ -50,14 +52,32 @@ func NewRabbitMQPublisher(channel *amqp.Channel, logger *slog.Logger) (RabbitMQP
 		return nil, fmt.Errorf("failed to declare exchange: %w", err)
 	}
 
-	// Declare queue
+	// Declare dead-letter exchange
+	err = channel.ExchangeDeclare(
+		"woragis.dlx", // name
+		"direct",      // kind
+		true,          // durable
+		false,         // auto-deleted
+		false,         // internal
+		false,         // no-wait
+		nil,           // arguments
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to declare dead-letter exchange: %w", err)
+	}
+
+	// Declare queue with DLX configuration (must match resume-worker)
 	_, err = channel.QueueDeclare(
 		resumeQueue, // name
 		true,        // durable
 		false,       // delete when unused
 		false,       // exclusive
 		false,       // no-wait
-		nil,         // arguments
+		amqp.Table{
+			"x-max-priority":            10,
+			"x-dead-letter-exchange":    "woragis.dlx",
+			"x-dead-letter-routing-key": "resumes.dead-letter",
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to declare queue: %w", err)

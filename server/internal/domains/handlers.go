@@ -3,9 +3,10 @@ package jobs
 import (
 	"strconv"
 
+	apperrors "woragis-jobs-service/pkg/errors"
 	"woragis-jobs-service/pkg/middleware"
-	"woragis-jobs-service/pkg/utils"
 	apptracing "woragis-jobs-service/pkg/tracing"
+	"woragis-jobs-service/pkg/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -37,12 +38,12 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) Register(c *fiber.Ctx) error {
 	var req RegisterRequest
 	if err := c.BodyParser(&req); err != nil {
-		return utils.BadRequestResponse(c, "Invalid request body")
+		return apperrors.SendError(c, apperrors.NewWithDetails(apperrors.VALIDATION_INVALID_INPUT, "Invalid request body"))
 	}
 
 	// Validate request
 	if err := utils.ValidateStruct(&req); err != nil {
-		return utils.ValidationErrorResponse(c, err)
+		return apperrors.SendError(c, apperrors.Wrap(apperrors.VALIDATION_INVALID_INPUT, err))
 	}
 
 	// Add custom span attributes for business context
@@ -55,14 +56,10 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 
 	response, err := h.service.register(&req)
 	if err != nil {
-		switch err {
-		case ErrUserAlreadyExists:
-			return utils.ConflictResponse(c, "User already exists")
-		case ErrPasswordTooWeak:
-			return utils.BadRequestResponse(c, err.Error())
-		default:
-			return utils.InternalServerErrorResponse(c, "Failed to register user")
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return apperrors.SendError(c, appErr)
 		}
+		return apperrors.HandleError(c, err)
 	}
 
 	// Add user ID to span after successful registration
@@ -90,12 +87,12 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 func (h *Handler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
 	if err := c.BodyParser(&req); err != nil {
-		return utils.BadRequestResponse(c, "Invalid request body")
+		return apperrors.SendError(c, apperrors.NewWithDetails(apperrors.VALIDATION_INVALID_INPUT, "Invalid request body"))
 	}
 
 	// Validate request
 	if err := utils.ValidateStruct(&req); err != nil {
-		return utils.ValidationErrorResponse(c, err)
+		return apperrors.SendError(c, apperrors.Wrap(apperrors.VALIDATION_INVALID_INPUT, err))
 	}
 
 	// Get client info
@@ -112,14 +109,10 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 
 	response, err := h.service.login(&req, userAgent, ipAddress)
 	if err != nil {
-		switch err {
-		case ErrInvalidCredentials:
-			return utils.UnauthorizedResponse(c, "Invalid credentials")
-		case ErrUserInactive:
-			return utils.UnauthorizedResponse(c, "Account is inactive")
-		default:
-			return utils.InternalServerErrorResponse(c, "Failed to login")
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return apperrors.SendError(c, appErr)
 		}
+		return apperrors.HandleError(c, err)
 	}
 
 	// Add user ID to span after successful login
@@ -150,12 +143,12 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&req); err != nil {
-		return utils.BadRequestResponse(c, "Invalid request body")
+		return apperrors.SendError(c, apperrors.NewWithDetails(apperrors.VALIDATION_INVALID_INPUT, "Invalid request body"))
 	}
 
 	// Validate request
 	if err := utils.ValidateStruct(&req); err != nil {
-		return utils.ValidationErrorResponse(c, err)
+		return apperrors.SendError(c, apperrors.Wrap(apperrors.VALIDATION_INVALID_INPUT, err))
 	}
 
 	// Add custom span attributes for business context
@@ -166,12 +159,7 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 
 	response, err := h.service.refreshToken(req.RefreshToken)
 	if err != nil {
-		switch err {
-		case ErrSessionExpired:
-			return utils.UnauthorizedResponse(c, "Session expired")
-		default:
-			return utils.InternalServerErrorResponse(c, "Failed to refresh token")
-		}
+		return apperrors.HandleError(c, err)
 	}
 
 	// Add user ID to span after successful refresh
@@ -181,7 +169,11 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 		)
 	}
 
-	return utils.SuccessResponse(c, "Token refreshed successfully", response)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Token refreshed successfully",
+		"data":    response,
+	})
 }
 
 // Logout godoc
@@ -201,19 +193,22 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&req); err != nil {
-		return utils.BadRequestResponse(c, "Invalid request body")
+		return apperrors.SendError(c, apperrors.NewWithDetails(apperrors.VALIDATION_INVALID_INPUT, "Invalid request body"))
 	}
 
 	// Validate request
 	if err := utils.ValidateStruct(&req); err != nil {
-		return utils.ValidationErrorResponse(c, err)
+		return apperrors.SendError(c, apperrors.Wrap(apperrors.VALIDATION_INVALID_INPUT, err))
 	}
 
 	if err := h.service.logout(req.RefreshToken); err != nil {
-		return utils.InternalServerErrorResponse(c, "Failed to logout")
+		return apperrors.HandleError(c, err)
 	}
 
-	return utils.SuccessResponse(c, "Logout successful", nil)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Logout successful",
+	})
 }
 
 // LogoutAll godoc
@@ -230,7 +225,7 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 func (h *Handler) LogoutAll(c *fiber.Ctx) error {
 	userID, err := middleware.GetUserIDFromFiberContext(c)
 	if err != nil {
-		return utils.UnauthorizedResponse(c, "Invalid user context")
+		return apperrors.SendError(c, apperrors.New(apperrors.AUTH_UNAUTHORIZED).WithDetails("Invalid user context"))
 	}
 
 	// Add custom span attributes for business context
@@ -241,10 +236,13 @@ func (h *Handler) LogoutAll(c *fiber.Ctx) error {
 	)
 
 	if err := h.service.logoutAll(userID); err != nil {
-		return utils.InternalServerErrorResponse(c, "Failed to logout from all devices")
+		return apperrors.HandleError(c, err)
 	}
 
-	return utils.SuccessResponse(c, "Logged out from all devices", nil)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Logged out from all devices",
+	})
 }
 
 // GetProfile godoc
@@ -262,7 +260,7 @@ func (h *Handler) LogoutAll(c *fiber.Ctx) error {
 func (h *Handler) GetProfile(c *fiber.Ctx) error {
 	userID, err := middleware.GetUserIDFromFiberContext(c)
 	if err != nil {
-		return utils.UnauthorizedResponse(c, "Invalid user context")
+		return apperrors.SendError(c, apperrors.New(apperrors.AUTH_UNAUTHORIZED).WithDetails("Invalid user context"))
 	}
 
 	// Add custom span attributes for business context
@@ -274,15 +272,14 @@ func (h *Handler) GetProfile(c *fiber.Ctx) error {
 
 	profile, err := h.service.getUserProfile(userID)
 	if err != nil {
-		switch err {
-		case ErrProfileNotFound:
-			return utils.NotFoundResponse(c, "Profile not found")
-		default:
-			return utils.InternalServerErrorResponse(c, "Failed to get profile")
-		}
+		return apperrors.HandleError(c, err)
 	}
 
-	return utils.SuccessResponse(c, "Profile retrieved successfully", profile)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Profile retrieved successfully",
+		"data":    profile,
+	})
 }
 
 // UpdateProfile godoc
@@ -302,12 +299,12 @@ func (h *Handler) GetProfile(c *fiber.Ctx) error {
 func (h *Handler) UpdateProfile(c *fiber.Ctx) error {
 	userID, err := middleware.GetUserIDFromFiberContext(c)
 	if err != nil {
-		return utils.UnauthorizedResponse(c, "Invalid user context")
+		return apperrors.SendError(c, apperrors.New(apperrors.AUTH_UNAUTHORIZED).WithDetails("Invalid user context"))
 	}
 
 	var req ProfileUpdateRequest
 	if err := c.BodyParser(&req); err != nil {
-		return utils.BadRequestResponse(c, "Invalid request body")
+		return apperrors.SendError(c, apperrors.NewWithDetails(apperrors.VALIDATION_INVALID_INPUT, "Invalid request body"))
 	}
 
 	// Add custom span attributes for business context
@@ -319,15 +316,14 @@ func (h *Handler) UpdateProfile(c *fiber.Ctx) error {
 
 	profile, err := h.service.updateUserProfile(userID, &req)
 	if err != nil {
-		switch err {
-		case ErrProfileNotFound:
-			return utils.NotFoundResponse(c, "Profile not found")
-		default:
-			return utils.InternalServerErrorResponse(c, "Failed to update profile")
-		}
+		return apperrors.HandleError(c, err)
 	}
 
-	return utils.SuccessResponse(c, "Profile updated successfully", profile)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Profile updated successfully",
+		"data":    profile,
+	})
 }
 
 // ChangePassword godoc
@@ -346,17 +342,17 @@ func (h *Handler) UpdateProfile(c *fiber.Ctx) error {
 func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 	userID, err := middleware.GetUserIDFromFiberContext(c)
 	if err != nil {
-		return utils.UnauthorizedResponse(c, "Invalid user context")
+		return apperrors.SendError(c, apperrors.New(apperrors.AUTH_UNAUTHORIZED).WithDetails("Invalid user context"))
 	}
 
 	var req PasswordChangeRequest
 	if err := c.BodyParser(&req); err != nil {
-		return utils.BadRequestResponse(c, "Invalid request body")
+		return apperrors.SendError(c, apperrors.NewWithDetails(apperrors.VALIDATION_INVALID_INPUT, "Invalid request body"))
 	}
 
 	// Validate request
 	if err := utils.ValidateStruct(&req); err != nil {
-		return utils.ValidationErrorResponse(c, err)
+		return apperrors.SendError(c, apperrors.Wrap(apperrors.VALIDATION_INVALID_INPUT, err))
 	}
 
 	// Add custom span attributes for business context
@@ -367,17 +363,13 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 	)
 
 	if err := h.service.changePassword(userID, &req); err != nil {
-		switch err {
-		case ErrInvalidPassword:
-			return utils.BadRequestResponse(c, "Current password is incorrect")
-		case ErrPasswordTooWeak:
-			return utils.BadRequestResponse(c, err.Error())
-		default:
-			return utils.InternalServerErrorResponse(c, "Failed to change password")
-		}
+		return apperrors.HandleError(c, err)
 	}
 
-	return utils.SuccessResponse(c, "Password changed successfully", nil)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Password changed successfully",
+	})
 }
 
 // VerifyEmail godoc
@@ -394,7 +386,7 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 func (h *Handler) VerifyEmail(c *fiber.Ctx) error {
 	token := c.Query("token")
 	if token == "" {
-		return utils.BadRequestResponse(c, "Verification token is required")
+		return apperrors.SendError(c, apperrors.NewWithDetails(apperrors.VALIDATION_MISSING_FIELD, "Verification token is required"))
 	}
 
 	// Add custom span attributes for business context
@@ -404,15 +396,13 @@ func (h *Handler) VerifyEmail(c *fiber.Ctx) error {
 	)
 
 	if err := h.service.verifyEmail(token); err != nil {
-		switch err {
-		case ErrTokenExpired, ErrTokenAlreadyUsed:
-			return utils.BadRequestResponse(c, err.Error())
-		default:
-			return utils.InternalServerErrorResponse(c, "Failed to verify email")
-		}
+		return apperrors.HandleError(c, err)
 	}
 
-	return utils.SuccessResponse(c, "Email verified successfully", nil)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Email verified successfully",
+	})
 }
 
 // GetUser godoc
@@ -439,20 +429,19 @@ func (h *Handler) GetUser(c *fiber.Ctx) error {
 	userIDStr := c.Params("id")
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		return utils.BadRequestResponse(c, "Invalid user ID")
+		return apperrors.SendError(c, apperrors.NewWithDetails(apperrors.VALIDATION_INVALID_INPUT, "Invalid user ID"))
 	}
 
 	user, err := h.service.getUserByID(userID)
 	if err != nil {
-		switch err {
-		case ErrUserNotFound:
-			return utils.NotFoundResponse(c, "User not found")
-		default:
-			return utils.InternalServerErrorResponse(c, "Failed to get user")
-		}
+		return apperrors.HandleError(c, err)
 	}
 
-	return utils.SuccessResponse(c, "User retrieved successfully", user)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "User retrieved successfully",
+		"data":    user,
+	})
 }
 
 // ListUsers godoc
@@ -492,7 +481,7 @@ func (h *Handler) ListUsers(c *fiber.Ctx) error {
 
 	users, total, err := h.service.listUsers(page, limit, search)
 	if err != nil {
-		return utils.InternalServerErrorResponse(c, "Failed to list users")
+		return apperrors.HandleError(c, err)
 	}
 
 	response := map[string]interface{}{
@@ -505,7 +494,11 @@ func (h *Handler) ListUsers(c *fiber.Ctx) error {
 		},
 	}
 
-	return utils.SuccessResponse(c, "Users retrieved successfully", response)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Users retrieved successfully",
+		"data":    response,
+	})
 }
 
 // CleanupExpiredSessions godoc
@@ -528,8 +521,11 @@ func (h *Handler) CleanupExpiredSessions(c *fiber.Ctx) error {
 	}
 
 	if err := h.service.cleanupExpiredSessions(); err != nil {
-		return utils.InternalServerErrorResponse(c, "Failed to cleanup expired sessions")
+		return apperrors.HandleError(c, err)
 	}
 
-	return utils.SuccessResponse(c, "Expired sessions cleaned up successfully", nil)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Expired sessions cleaned up successfully",
+	})
 }

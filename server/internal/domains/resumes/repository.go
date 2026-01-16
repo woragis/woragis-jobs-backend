@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	apperrors "woragis-jobs-service/pkg/errors"
 )
 
 // ResumeMetrics holds calculated metrics for a resume.
@@ -68,7 +70,7 @@ func (r *gormRepository) DeleteResume(ctx context.Context, resumeID uuid.UUID, u
 	}
 	
 	if result.RowsAffected == 0 {
-		return NewDomainError(ErrCodeNotFound, ErrResumeNotFound)
+		return apperrors.New(apperrors.RESUME_NOT_FOUND)
 	}
 	
 	return nil
@@ -83,7 +85,7 @@ func (r *gormRepository) GetResume(ctx context.Context, resumeID uuid.UUID, user
 	
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, NewDomainError(ErrCodeNotFound, ErrResumeNotFound)
+			return nil, apperrors.New(apperrors.RESUME_NOT_FOUND)
 		}
 		return nil, err
 	}
@@ -154,7 +156,7 @@ func (r *gormRepository) GetFeaturedResume(ctx context.Context, userID uuid.UUID
 	
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, NewDomainError(ErrCodeNotFound, ErrResumeNotFound)
+			return nil, apperrors.New(apperrors.RESUME_NOT_FOUND)
 		}
 		return nil, err
 	}

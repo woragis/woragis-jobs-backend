@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
+	apperrors "woragis-jobs-service/pkg/errors"
 	"woragis-jobs-service/pkg/response"
 )
 
@@ -170,23 +171,6 @@ func (h *handler) DeleteJobWebsite(c *fiber.Ctx) error {
 }
 
 func (h *handler) handleError(c *fiber.Ctx, err error) error {
-	if domainErr, ok := AsDomainError(err); ok {
-		statusCode := fiber.StatusInternalServerError
-		switch domainErr.Code {
-		case ErrCodeNotFound:
-			statusCode = fiber.StatusNotFound
-		case ErrCodeInvalidPayload:
-			statusCode = fiber.StatusBadRequest
-		}
-
-		return response.Error(c, statusCode, domainErr.Code, fiber.Map{
-			"message": domainErr.Message,
-		})
-	}
-
-	h.logger.Error("unhandled error", slog.Any("error", err))
-	return response.Error(c, fiber.StatusInternalServerError, 500, fiber.Map{
-		"message": "internal server error",
-	})
+	return apperrors.HandleError(c, err)
 }
 

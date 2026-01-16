@@ -42,13 +42,13 @@ type CSRFConfig struct {
 // secureCookie should be false in development (HTTP) and true in production (HTTPS)
 func DefaultCSRFConfig(redisClient *redis.Client, secureCookie bool) CSRFConfig {
 	return CSRFConfig{
-		RedisClient:  redisClient,
-		TokenLength:  32,
-		TokenTTL:     1 * time.Hour,
-		CookieName:   "csrf_token",
-		HeaderName:   "X-CSRF-Token",
-		SecureCookie: secureCookie,
-		ExemptRoutes: []string{"/healthz", "/metrics", "/api/v1/auth/login", "/api/v1/auth/register"},
+		RedisClient:   redisClient,
+		TokenLength:   32,
+		TokenTTL:      1 * time.Hour,
+		CookieName:    "csrf_token",
+		HeaderName:    "X-CSRF-Token",
+		SecureCookie:  secureCookie,
+		ExemptRoutes:  []string{"/healthz", "/metrics", "/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/resumes/complete"},
 		ExemptMethods: []string{"GET", "HEAD", "OPTIONS"},
 	}
 }
@@ -104,9 +104,9 @@ func CSRFMiddleware(config CSRFConfig) fiber.Handler {
 			c.Cookie(&fiber.Cookie{
 				Name:     config.CookieName,
 				Value:    token,
-				HTTPOnly: false, // Must be readable by JavaScript for API clients
+				HTTPOnly: false,               // Must be readable by JavaScript for API clients
 				Secure:   config.SecureCookie, // Configurable based on environment
-				SameSite: "Lax", // Changed from Strict to Lax for better compatibility
+				SameSite: "Lax",               // Changed from Strict to Lax for better compatibility
 				MaxAge:   int(config.TokenTTL.Seconds()),
 				Path:     "/", // Ensure cookie is available for all paths
 			})
@@ -167,4 +167,3 @@ func CSRFMiddleware(config CSRFConfig) fiber.Handler {
 		return c.Next()
 	}
 }
-

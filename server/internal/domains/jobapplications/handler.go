@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
+	apperrors "woragis-jobs-service/pkg/errors"
 	"woragis-jobs-service/pkg/middleware"
 	"woragis-jobs-service/pkg/response"
 )
@@ -607,33 +608,6 @@ func (h *handler) DeleteJobApplication(c *fiber.Ctx) error {
 }
 
 func (h *handler) handleError(c *fiber.Ctx, err error) error {
-	if domainErr, ok := AsDomainError(err); ok {
-		statusCode := fiber.StatusInternalServerError
-		switch domainErr.Code {
-		case ErrCodeNotFound:
-			statusCode = fiber.StatusNotFound
-		case ErrCodeInvalidPayload, ErrCodeInvalidStatus:
-			statusCode = fiber.StatusBadRequest
-		case ErrCodeJobQueueFailure, ErrCodeAIServiceFailure, ErrCodePlaywrightFailure:
-			statusCode = fiber.StatusServiceUnavailable
-		case ErrCodeDatabaseConstraint, ErrCodeDatabaseValueTooLong, ErrCodeDatabaseUniqueViolation, ErrCodeDatabaseForeignKeyViolation:
-			statusCode = fiber.StatusBadRequest
-		case ErrCodeDatabaseConnection:
-			statusCode = fiber.StatusServiceUnavailable
-		case ErrCodeAccessDenied:
-			statusCode = fiber.StatusForbidden
-		}
-
-		return response.Error(c, statusCode, domainErr.Code, fiber.Map{
-			"message": domainErr.Message,
-		})
-	}
-
-	if h.logger != nil {
-		h.logger.Error("unhandled error", slog.Any("error", err))
-	}
-	return response.Error(c, fiber.StatusInternalServerError, 500, fiber.Map{
-		"message": "internal server error",
-	})
+	return apperrors.HandleError(c, err)
 }
 

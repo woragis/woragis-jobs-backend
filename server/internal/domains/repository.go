@@ -3,24 +3,17 @@ package jobs
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	apperrors "woragis-jobs-service/pkg/errors"
 	appmetrics "woragis-jobs-service/pkg/metrics"
 	apptracing "woragis-jobs-service/pkg/tracing"
 )
 
-var (
-	ErrUserNotFound      = errors.New("user not found")
-	ErrProfileNotFound   = errors.New("profile not found")
-	ErrSessionNotFound   = errors.New("session not found")
-	ErrTokenNotFound     = errors.New("verification token not found")
-	ErrUserAlreadyExists = errors.New("user already exists")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-)
+// Removed old error variables - now using structured error codes from pkg/errors
 
 // Repository defines the interface for auth repository operations
 type Repository interface {
@@ -75,9 +68,9 @@ func (r *repositoryImpl) createUser(user *User) error {
 		
 		if err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {
-				return ErrUserAlreadyExists
+				return apperrors.New(apperrors.AUTH_EMAIL_ALREADY_EXISTS)
 			}
-			return fmt.Errorf("failed to create user: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -97,9 +90,9 @@ func (r *repositoryImpl) getUserByID(id uuid.UUID) (*User, error) {
 		
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrUserNotFound
+				return apperrors.New(apperrors.AUTH_USER_NOT_FOUND)
 			}
-			return fmt.Errorf("failed to get user by ID: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -124,9 +117,9 @@ func (r *repositoryImpl) getUserByEmail(email string) (*User, error) {
 		
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrUserNotFound
+				return apperrors.New(apperrors.AUTH_USER_NOT_FOUND)
 			}
-			return fmt.Errorf("failed to get user by email: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -151,9 +144,9 @@ func (r *repositoryImpl) getUserByUsername(username string) (*User, error) {
 		
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrUserNotFound
+				return apperrors.New(apperrors.AUTH_USER_NOT_FOUND)
 			}
-			return fmt.Errorf("failed to get user by username: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -175,7 +168,7 @@ func (r *repositoryImpl) updateUser(user *User) error {
 		appmetrics.RecordDatabaseQuery("update", "users", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to update user: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -192,7 +185,7 @@ func (r *repositoryImpl) deleteUser(id uuid.UUID) error {
 		appmetrics.RecordDatabaseQuery("delete", "users", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to delete user: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -210,7 +203,7 @@ func (r *repositoryImpl) updateLastLogin(id uuid.UUID) error {
 		appmetrics.RecordDatabaseQuery("update", "users", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to update last login: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -227,7 +220,7 @@ func (r *repositoryImpl) verifyUserEmail(id uuid.UUID) error {
 		appmetrics.RecordDatabaseQuery("update", "users", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to verify user email: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -259,7 +252,7 @@ func (r *repositoryImpl) listUsers(offset, limit int, search string) ([]User, in
 		appmetrics.RecordDatabaseQuery("count", "users", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to count users: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -277,7 +270,7 @@ func (r *repositoryImpl) listUsers(offset, limit int, search string) ([]User, in
 		appmetrics.RecordDatabaseQuery("select", "users", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to list users: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -302,7 +295,7 @@ func (r *repositoryImpl) createProfile(profile *Profile) error {
 		appmetrics.RecordDatabaseQuery("create", "profiles", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to create profile: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -322,9 +315,9 @@ func (r *repositoryImpl) getProfileByUserID(userID uuid.UUID) (*Profile, error) 
 		
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrProfileNotFound
+				return apperrors.New(apperrors.DB_RECORD_NOT_FOUND)
 			}
-			return fmt.Errorf("failed to get profile by user ID: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -346,7 +339,7 @@ func (r *repositoryImpl) updateProfile(profile *Profile) error {
 		appmetrics.RecordDatabaseQuery("update", "profiles", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to update profile: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -363,7 +356,7 @@ func (r *repositoryImpl) deleteProfile(userID uuid.UUID) error {
 		appmetrics.RecordDatabaseQuery("delete", "profiles", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to delete profile: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -382,7 +375,7 @@ func (r *repositoryImpl) createSession(session *Session) error {
 		appmetrics.RecordDatabaseQuery("create", "sessions", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to create session: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -402,9 +395,9 @@ func (r *repositoryImpl) getSessionByRefreshToken(refreshToken string) (*Session
 		
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrSessionNotFound
+				return apperrors.New(apperrors.DB_RECORD_NOT_FOUND)
 			}
-			return fmt.Errorf("failed to get session by refresh token: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -428,7 +421,7 @@ func (r *repositoryImpl) getSessionsByUserID(userID uuid.UUID) ([]Session, error
 		appmetrics.RecordDatabaseQuery("select", "sessions", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to get sessions by user ID: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -450,7 +443,7 @@ func (r *repositoryImpl) updateSession(session *Session) error {
 		appmetrics.RecordDatabaseQuery("update", "sessions", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to update session: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -467,7 +460,7 @@ func (r *repositoryImpl) deactivateSession(id uuid.UUID) error {
 		appmetrics.RecordDatabaseQuery("update", "sessions", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to deactivate session: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -484,7 +477,7 @@ func (r *repositoryImpl) deactivateAllUserSessions(userID uuid.UUID) error {
 		appmetrics.RecordDatabaseQuery("update", "sessions", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to deactivate all user sessions: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -501,7 +494,7 @@ func (r *repositoryImpl) deleteExpiredSessions() error {
 		appmetrics.RecordDatabaseQuery("delete", "sessions", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to delete expired sessions: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -520,7 +513,7 @@ func (r *repositoryImpl) createVerificationToken(token *VerificationToken) error
 		appmetrics.RecordDatabaseQuery("create", "verification_tokens", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to create verification token: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -540,9 +533,9 @@ func (r *repositoryImpl) getVerificationToken(token string) (*VerificationToken,
 		
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrTokenNotFound
+				return apperrors.New(apperrors.DB_RECORD_NOT_FOUND)
 			}
-			return fmt.Errorf("failed to get verification token: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -564,7 +557,7 @@ func (r *repositoryImpl) markTokenAsUsed(id uuid.UUID) error {
 		appmetrics.RecordDatabaseQuery("update", "verification_tokens", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to mark token as used: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -581,7 +574,7 @@ func (r *repositoryImpl) deleteExpiredTokens() error {
 		appmetrics.RecordDatabaseQuery("delete", "verification_tokens", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to delete expired tokens: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})
@@ -598,7 +591,7 @@ func (r *repositoryImpl) deleteUsedTokens() error {
 		appmetrics.RecordDatabaseQuery("delete", "verification_tokens", duration)
 		
 		if err != nil {
-			return fmt.Errorf("failed to delete used tokens: %w", err)
+			return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 		return nil
 	})

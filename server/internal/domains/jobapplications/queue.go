@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+
+	apperrors "woragis-jobs-service/pkg/errors"
 )
 
 const (
@@ -35,7 +37,7 @@ func NewRedisQueue(client *redis.Client) Queue {
 
 func (q *redisQueue) EnqueueJob(ctx context.Context, job *JobApplicationJob) error {
 	if q.client == nil {
-		return NewDomainError(ErrCodeJobQueueFailure, ErrJobQueueUnavailable)
+		return apperrors.New(apperrors.RABBITMQ_CONNECTION_FAILED)
 	}
 
 	if job.ID == "" {
@@ -50,12 +52,12 @@ func (q *redisQueue) EnqueueJob(ctx context.Context, job *JobApplicationJob) err
 	// Store job data
 	jobKey := jobApplicationJobPrefix + job.ID
 	if err := q.client.Set(ctx, jobKey, jobData, 24*time.Hour).Err(); err != nil {
-		return NewDomainError(ErrCodeJobQueueFailure, ErrJobQueueUnavailable)
+		return apperrors.New(apperrors.RABBITMQ_CONNECTION_FAILED)
 	}
 
 	// Add to queue
 	if err := q.client.LPush(ctx, jobApplicationQueueKey, job.ID).Err(); err != nil {
-		return NewDomainError(ErrCodeJobQueueFailure, ErrJobQueueUnavailable)
+		return apperrors.New(apperrors.RABBITMQ_CONNECTION_FAILED)
 	}
 
 	return nil
@@ -63,7 +65,7 @@ func (q *redisQueue) EnqueueJob(ctx context.Context, job *JobApplicationJob) err
 
 func (q *redisQueue) DequeueJob(ctx context.Context, timeout time.Duration) (*JobApplicationJob, error) {
 	if q.client == nil {
-		return nil, NewDomainError(ErrCodeJobQueueFailure, ErrJobQueueUnavailable)
+		return nil, apperrors.New(apperrors.RABBITMQ_CONNECTION_FAILED)
 	}
 
 	// Blocking pop from queue
@@ -72,7 +74,7 @@ func (q *redisQueue) DequeueJob(ctx context.Context, timeout time.Duration) (*Jo
 		if err == redis.Nil {
 			return nil, nil // No job available
 		}
-		return nil, NewDomainError(ErrCodeJobQueueFailure, ErrJobQueueUnavailable)
+		return nil, apperrors.New(apperrors.RABBITMQ_CONNECTION_FAILED)
 	}
 
 	if len(result) < 2 {
@@ -85,7 +87,7 @@ func (q *redisQueue) DequeueJob(ctx context.Context, timeout time.Duration) (*Jo
 
 func (q *redisQueue) GetJob(ctx context.Context, jobID string) (*JobApplicationJob, error) {
 	if q.client == nil {
-		return nil, NewDomainError(ErrCodeJobQueueFailure, ErrJobQueueUnavailable)
+		return nil, apperrors.New(apperrors.RABBITMQ_CONNECTION_FAILED)
 	}
 
 	jobKey := jobApplicationJobPrefix + jobID
@@ -94,7 +96,7 @@ func (q *redisQueue) GetJob(ctx context.Context, jobID string) (*JobApplicationJ
 		if err == redis.Nil {
 			return nil, NewDomainError(ErrCodeNotFound, "jobapplications: job not found")
 		}
-		return nil, NewDomainError(ErrCodeJobQueueFailure, ErrJobQueueUnavailable)
+		return nil, apperrors.New(apperrors.RABBITMQ_CONNECTION_FAILED)
 	}
 
 	var job JobApplicationJob
@@ -107,7 +109,7 @@ func (q *redisQueue) GetJob(ctx context.Context, jobID string) (*JobApplicationJ
 
 func (q *redisQueue) MarkJobComplete(ctx context.Context, jobID string) error {
 	if q.client == nil {
-		return NewDomainError(ErrCodeJobQueueFailure, ErrJobQueueUnavailable)
+		return apperrors.New(apperrors.RABBITMQ_CONNECTION_FAILED)
 	}
 
 	// Remove job from storage
