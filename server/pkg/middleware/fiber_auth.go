@@ -21,6 +21,12 @@ func JWTMiddleware(config JWTConfig) fiber.Handler {
 		// Get token from Authorization header
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
+			// Check for X-API-Key header as alternative for internal services
+			apiKey := c.Get("X-API-Key")
+			if apiKey == "internal-service-key" {
+				// Allow internal service access
+				return c.Next()
+			}
 			return utils.UnauthorizedResponse(c, "Authorization header required")
 		}
 

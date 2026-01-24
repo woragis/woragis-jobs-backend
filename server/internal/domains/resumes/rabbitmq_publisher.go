@@ -1,10 +1,15 @@
 package resumes
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -33,6 +38,7 @@ const (
 
 type rabbitMQPublisher struct {
 	channel *amqp.Channel
+	confirms <-chan amqp.Confirmation
 	logger  *slog.Logger
 }
 
@@ -95,10 +101,45 @@ func NewRabbitMQPublisher(channel *amqp.Channel, logger *slog.Logger) (RabbitMQP
 		return nil, fmt.Errorf("failed to bind queue: %w", err)
 	}
 
+	// Enable publisher confirms on the channel so we can wait for ack/nack
+	if err := channel.Confirm(false); err != nil {
+		// Not fatal — some environments may not support confirms, but prefer to log
+		logger.Warn("failed to enable publisher confirms", "error", err.Error())
+	}
+
+	confirms := channel.NotifyPublish(make(chan amqp.Confirmation, 1))
+
 	return &rabbitMQPublisher{
-		channel: channel,
-		logger:  logger,
+		channel:  channel,
+		confirms: confirms,
+		logger:   logger,
 	}, nil
+}
+
+// helper to get publish retry configuration from env
+func getPublishConfig() (maxAttempts int, timeout time.Duration, baseDelay time.Duration) {
+	maxAttempts = 3
+	if v := os.Getenv("JOBS_PUBLISH_MAX_ATTEMPTS"); v != "" {
+		if i, err := strconv.Atoi(v); err == nil && i > 0 {
+			maxAttempts = i
+		}
+	}
+
+	timeout = 5 * time.Second
+	if v := os.Getenv("JOBS_PUBLISH_WAIT_ACK_MS"); v != "" {
+		if i, err := strconv.Atoi(v); err == nil && i > 0 {
+			timeout = time.Duration(i) * time.Millisecond
+		}
+	}
+
+	baseDelay = 500 * time.Millisecond
+	if v := os.Getenv("JOBS_PUBLISH_BASE_DELAY_MS"); v != "" {
+		if i, err := strconv.Atoi(v); err == nil && i > 0 {
+			baseDelay = time.Duration(i) * time.Millisecond
+		}
+	}
+
+	return
 }
 
 // PublishResumeGenerationJob publishes a resume generation job to RabbitMQ.
@@ -112,33 +153,101 @@ func (p *rabbitMQPublisher) PublishResumeGenerationJob(ctx context.Context, job 
 		return fmt.Errorf("failed to marshal job: %w", err)
 	}
 
-	err = p.channel.PublishWithContext(
-		ctx,
-		resumeExchange,   // exchange
-		resumeRoutingKey, // routing key
-		false,            // mandatory
-		false,            // immediate
-		amqp.Publishing{
-			ContentType:  "application/json",
-			Body:         body,
-			DeliveryMode: amqp.Persistent,
-		},
-	)
+	// Retry loop with publisher confirms if available
+	maxAttempts, ackWait, baseDelay := getPublishConfig()
 
-	if err != nil {
-		p.logger.Error("failed to publish job",
-			slog.String("jobId", job.JobID),
-			slog.String("error", err.Error()),
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if attempt > 1 {
+			// Exponential backoff
+			delay := time.Duration(attempt) * baseDelay
+			time.Sleep(delay)
+		}
+
+		// Publish
+		err = p.channel.PublishWithContext(
+			ctx,
+			resumeExchange,   // exchange
+			resumeRoutingKey, // routing key
+			false,            // mandatory
+			false,            // immediate
+			amqp.Publishing{
+				ContentType:  "application/json",
+				Body:         body,
+				DeliveryMode: amqp.Persistent,
+			},
 		)
-		return fmt.Errorf("failed to publish job: %w", err)
+
+		if err != nil {
+			lastErr = err
+			p.logger.Error("failed to publish job",
+				slog.String("jobId", job.JobID),
+				slog.String("error", err.Error()),
+				slog.Int("attempt", attempt),
+			)
+			continue
+		}
+
+		// If confirms channel is available, wait for confirmation
+		if p.confirms != nil {
+			select {
+			case conf := <-p.confirms:
+				if conf.Ack {
+					p.logger.Info("resume generation job published",
+						slog.String("jobId", job.JobID),
+						slog.String("userId", job.UserID),
+					)
+					return nil
+				}
+				lastErr = fmt.Errorf("message nack received")
+				p.logger.Warn("publish received NACK from broker", "jobId", job.JobID, "attempt", attempt)
+				continue
+			case <-time.After(ackWait):
+				lastErr = fmt.Errorf("timeout waiting for publish confirmation")
+				p.logger.Warn("timeout waiting for publish confirmation", "jobId", job.JobID, "attempt", attempt)
+				continue
+			}
+		}
+
+		// If no confirms available, consider publish successful
+		p.logger.Info("resume generation job published (no confirms)",
+			slog.String("jobId", job.JobID),
+			slog.String("userId", job.UserID),
+		)
+		return nil
 	}
 
-	p.logger.Info("resume generation job published",
-		slog.String("jobId", job.JobID),
-		slog.String("userId", job.UserID),
-	)
+	// All attempts failed — attempt HTTP fallback to resume-worker if configured
+	p.logger.Error("all publish attempts failed, attempting HTTP fallback if configured", "jobId", job.JobID, "lastError", fmt.Sprintf("%v", lastErr))
 
-	return nil
+	fallbackURL := os.Getenv("RESUME_WORKER_FALLBACK_URL")
+	if fallbackURL == "" {
+		fallbackURL = "http://resume-worker:3005/fallback/resumes"
+	}
+
+	reqBody, _ := json.Marshal(job)
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+
+	resp, err := httpClient.Post(fallbackURL, "application/json", bytes.NewReader(reqBody))
+	if err != nil {
+		p.logger.Error("failed to call HTTP fallback", "error", err.Error(), "fallbackURL", fallbackURL)
+		if lastErr != nil {
+			return fmt.Errorf("publish failed: %w", lastErr)
+		}
+		return fmt.Errorf("publish failed and fallback failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		p.logger.Info("fallback accepted resume generation job", "jobId", job.JobID, "fallbackURL", fallbackURL)
+		return nil
+	}
+
+	p.logger.Error("fallback rejected resume generation job", "status", resp.StatusCode, "fallbackURL", fallbackURL)
+	if lastErr != nil {
+		return fmt.Errorf("publish failed: %w", lastErr)
+	}
+	return fmt.Errorf("publish failed and fallback returned status %d", resp.StatusCode)
 }
 
 // Close closes the RabbitMQ channel.
