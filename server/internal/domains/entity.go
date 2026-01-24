@@ -1,10 +1,20 @@
 package jobs
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+)
+
+// Error variables for service operations
+var (
+	ErrUserNotFound       = errors.New("user not found")
+	ErrUserAlreadyExists  = errors.New("user already exists")
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrPasswordTooWeak    = errors.New("password is too weak")
+	ErrSessionExpired     = errors.New("session has expired")
 )
 
 // User represents a user in the system
