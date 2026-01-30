@@ -12,14 +12,12 @@ import (
 type Manager struct {
 	Postgres *gorm.DB
 	Redis    *redis.Client
-	RabbitMQ *RabbitMQConnection
 }
 
 // Config holds configuration for all database connections
 type Config struct {
 	Postgres PostgresConfig
 	Redis    RedisConfig
-	RabbitMQ string // URL
 }
 
 // NewManager creates a new database manager with all connections
@@ -44,16 +42,7 @@ func NewManager(config Config) (*Manager, error) {
 	}
 	manager.Redis = redisClient
 
-	// Initialize RabbitMQ connection (optional, warn if fails)
-	if config.RabbitMQ != "" {
-		rabbitMQConn, err := NewRabbitMQ(config.RabbitMQ)
-		if err != nil {
-			log.Printf("Warning: failed to initialize RabbitMQ: %v", err)
-			// Don't fail completely, but log the warning
-		} else {
-			manager.RabbitMQ = rabbitMQConn
-		}
-	}
+	// RabbitMQ removed from manager (no-op)
 
 	log.Println("Database manager initialized successfully")
 	return manager, nil
@@ -77,12 +66,7 @@ func (m *Manager) Close() error {
 		}
 	}
 
-	// Close RabbitMQ connection
-	if m.RabbitMQ != nil {
-		if err := m.RabbitMQ.Close(); err != nil {
-			errs = append(errs, fmt.Errorf("failed to close RabbitMQ: %w", err))
-		}
-	}
+	// RabbitMQ removed from manager
 
 	if len(errs) > 0 {
 		return fmt.Errorf("errors closing database connections: %v", errs)
@@ -131,7 +115,3 @@ func (m *Manager) GetRedis() *redis.Client {
 	return m.Redis
 }
 
-// GetRabbitMQ returns the RabbitMQ connection
-func (m *Manager) GetRabbitMQ() *RabbitMQConnection {
-	return m.RabbitMQ
-}

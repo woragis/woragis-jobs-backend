@@ -2,6 +2,8 @@ package jobs
 
 import (
 	"log/slog"
+	"os"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -34,21 +36,23 @@ func SetupRoutes(api fiber.Router, dbManager *database.Manager, jwtManager *auth
 	// Initialize services
 	jobAppService := jobapplications.NewService(jobAppRepo, nil, logger) // Queue will be nil for now
 	
-	// Initialize RabbitMQ publisher for resume jobs
-	var resumePublisher resumes.RabbitMQPublisher = resumes.NewNoOpPublisher(logger)
-	if dbManager.GetRabbitMQ() != nil {
-		var err error
-		resumePublisher, err = resumes.NewRabbitMQPublisher(dbManager.GetRabbitMQ().Channel, logger)
-		if err != nil {
-			logger.Warn("failed to initialize RabbitMQ publisher", "error", err)
-			resumePublisher = resumes.NewNoOpPublisher(logger)
-		} else {
-			logger.Info("RabbitMQ publisher initialized successfully")
+	// Initialize HTTP publisher for resume-generator (replaces RabbitMQ)
+	resumeGeneratorURL := os.Getenv("RESUME_GENERATOR_URL")
+	timeoutMs := 5000
+	if v := os.Getenv("RESUME_GENERATOR_TIMEOUT_MS"); v != "" {
+		if t, err := strconv.Atoi(v); err == nil && t > 0 {
+			timeoutMs = t
 		}
-	} else {
-		logger.Warn("RabbitMQ connection not available, using no-op publisher")
 	}
-	
+
+	var resumePublisher resumes.RabbitMQPublisher = resumes.NewNoOpPublisher(logger)
+	if resumeGeneratorURL != "" {
+		resumePublisher = resumes.NewHTTPPublisher(resumeGeneratorURL, timeoutMs, logger)
+		logger.Info("HTTP publisher initialized for resume-generator", "url", resumeGeneratorURL)
+	} else {
+		logger.Warn("RESUME_GENERATOR_URL not provided, using NoOp publisher")
+	}
+
 	resumeService := resumes.NewService(resumeRepo, resumePublisher, logger)
 	jobWebsiteService := jobwebsites.NewService(jobWebsiteRepo, logger)
 

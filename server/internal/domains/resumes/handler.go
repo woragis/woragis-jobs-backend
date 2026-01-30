@@ -62,6 +62,20 @@ type JobApplication struct {
 	CompanyName    string
 }
 
+// normalizeLanguage converts common abbreviations or variants into full language names.
+func normalizeLanguage(l string) string {
+	switch strings.ToLower(strings.TrimSpace(l)) {
+	case "en", "eng", "english":
+		return "english"
+	case "pt", "por", "portuguese", "português":
+		return "portuguese"
+	case "es", "spa", "spanish", "español":
+		return "spanish"
+	default:
+		return "english"
+	}
+}
+
 type handler struct {
 	service               Service
 	jobApplicationService JobApplicationService // Optional: for generating resumes
@@ -753,8 +767,11 @@ func (h *handler) GenerateResume(c *fiber.Ctx) error {
 		language = jobApp.Language
 	}
 	if language == "" {
-		language = "en"
+		language = "english"
 	}
+
+
+	language = normalizeLanguage(language)
 
 	// Extract user info from JWT context
 	userEmail, err := middleware.GetUserEmailFromFiberContext(c)

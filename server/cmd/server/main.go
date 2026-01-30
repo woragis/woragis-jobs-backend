@@ -143,28 +143,7 @@ func logEnvironmentVariables(logger *slog.Logger, env string) {
 	}
 	
 	// RabbitMQ settings (optional)
-	logger.Info("RabbitMQ Settings (optional):")
-	rabbitVars := map[string]string{
-		"RABBITMQ_URL":      os.Getenv("RABBITMQ_URL"),
-		"RABBITMQ_HOST":     os.Getenv("RABBITMQ_HOST"),
-		"RABBITMQ_PORT":     os.Getenv("RABBITMQ_PORT"),
-		"RABBITMQ_USER":     os.Getenv("RABBITMQ_USER"),
-		"RABBITMQ_PASSWORD": os.Getenv("RABBITMQ_PASSWORD"),
-		"RABBITMQ_VHOST":    os.Getenv("RABBITMQ_VHOST"),
-	}
-	for key, val := range rabbitVars {
-		status := "○"
-		display := "<not set>"
-		if val != "" {
-			status = "✓"
-			if key == "RABBITMQ_PASSWORD" || key == "RABBITMQ_URL" {
-				display = maskValue(val)
-			} else {
-				display = val
-			}
-		}
-		logger.Info("  "+status+" "+key, "value", display)
-	}
+	// RabbitMQ removed from configuration (if needed, re-add RESUME_GENERATOR_URL)
 	
 	// SMTP/Email settings (optional)
 	logger.Info("SMTP/Email Settings (optional):")

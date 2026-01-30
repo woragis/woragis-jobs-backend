@@ -6,8 +6,6 @@ import (
 
 // NewFromConfig creates a new database manager from application config
 func NewFromConfig(dbCfg *config.DatabaseConfig, redisCfg *config.RedisConfig) (*Manager, error) {
-	rabbitMQCfg := config.LoadRabbitMQConfig()
-	
 	dbConfig := Config{
 		Postgres: PostgresConfig{
 			DSN:             dbCfg.URL,
@@ -21,7 +19,6 @@ func NewFromConfig(dbCfg *config.DatabaseConfig, redisCfg *config.RedisConfig) (
 			Password: redisCfg.Password,
 			DB:       redisCfg.DB,
 		},
-		RabbitMQ: rabbitMQCfg.URL,
 	}
 
 	return NewManager(dbConfig)
