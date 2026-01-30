@@ -5,6 +5,7 @@ Job application and resume management service for Woragis platform.
 ## Overview
 
 The Jobs Service is a standalone microservice responsible for:
+
 - Job application tracking
 - Resume management
 - Job website/platform tracking
@@ -15,6 +16,7 @@ The Jobs Service is a standalone microservice responsible for:
 ## Architecture
 
 This service follows the same patterns as the main Woragis backend:
+
 - **Go Fiber** web framework
 - **GORM** for database operations
 - **PostgreSQL** for data persistence
@@ -125,15 +127,18 @@ JAEGER_ENDPOINT=http://jaeger:4318
 ### Running Locally
 
 1. **Start dependencies:**
+
    ```bash
    docker-compose up -d database redis
    ```
 
 2. **Run migrations:**
+
    ```bash
    cd server
    go run cmd/server/main.go
    ```
+
    (Migrations run automatically on startup)
 
 3. **Run the service:**
@@ -184,6 +189,7 @@ The service has its own CI/CD pipeline:
 ## Database Schema
 
 The service creates the following tables:
+
 - `job_applications` - Job application records
 - `interview_stages` - Interview stage tracking
 - `responses` - Application response tracking
@@ -209,12 +215,13 @@ The service creates the following tables:
 ## Integration with Other Services
 
 This service integrates with:
+
 - **Auth Service**: Validates JWT tokens and gets user information
 - **AI Service**: Generates cover letters for job applications
-- **Creative Service**: Generates resumes (via resume-worker)
-- **RabbitMQ**: Processes job application tasks asynchronously
+- **Resume Generator**: The jobs service forwards resume generation requests to the `resume-generator` HTTP API. Configure the target with `RESUME_GENERATOR_URL` and request timeout with `RESUME_GENERATOR_TIMEOUT_MS` (milliseconds).
+
+Note: RabbitMQ used to be part of this workflow; the service now forwards resume jobs over HTTP to the `resume-generator`. If you still rely on RabbitMQ elsewhere, re-introduce it deliberately in your deployment.
 
 ## License
 
 Proprietary - Woragis Platform
-

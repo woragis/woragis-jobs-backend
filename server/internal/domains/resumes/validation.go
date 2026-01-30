@@ -25,6 +25,7 @@ type updateResumePayload struct {
 // generateResumePayload represents the payload for GenerateResume
 type generateResumePayload struct {
 	JobApplicationID string `json:"jobApplicationId"`
+	JobDescription   string `json:"jobDescription"`
 	Language         string `json:"language"`
 	Template         string `json:"template,omitempty"`
 }
@@ -136,24 +137,30 @@ func ValidateUpdateResumePayload(payload *updateResumePayload) error {
 
 // ValidateGenerateResumePayload validates generate resume payload
 func ValidateGenerateResumePayload(payload *generateResumePayload) error {
-	// Validate job application ID (required)
-	if payload.JobApplicationID == "" {
-		return fmt.Errorf("jobApplicationId is required")
-	}
-	if err := validation.ValidateUUID(payload.JobApplicationID); err != nil {
-		return fmt.Errorf("jobApplicationId: %w", err)
+	// Validate that either jobApplicationId or jobDescription is provided
+	if payload.JobApplicationID == "" && strings.TrimSpace(payload.JobDescription) == "" {
+		return fmt.Errorf("either jobApplicationId or jobDescription is required")
 	}
 
-	// Validate language (required, ISO 639-1 format)
-	if payload.Language == "" {
-		return fmt.Errorf("language is required")
+	// If jobApplicationId provided, validate UUID
+	if payload.JobApplicationID != "" {
+		if err := validation.ValidateUUID(payload.JobApplicationID); err != nil {
+			return fmt.Errorf("jobApplicationId: %w", err)
+		}
 	}
-	if len(payload.Language) != 2 {
-		return fmt.Errorf("language: must be exactly 2 characters (ISO 639-1 code)")
-	}
-	// Should be lowercase
-	if payload.Language != strings.ToLower(payload.Language) {
-		return fmt.Errorf("language: must be lowercase ISO 639-1 code")
+
+	// Validate language (optional). Accept either 2-letter ISO codes or full language names.
+	if payload.Language != "" {
+		l := strings.ToLower(strings.TrimSpace(payload.Language))
+		allowedFull := map[string]bool{"english": true, "portuguese": true, "spanish": true, "french": true, "german": true}
+		if len(l) == 2 {
+			// accept two-letter codes (e.g., en, pt, es)
+			if l != strings.ToLower(l) {
+				return fmt.Errorf("language: must be lowercase")
+			}
+		} else if !allowedFull[l] {
+			return fmt.Errorf("language: unsupported value")
+		}
 	}
 
 	// Validate template (optional, but if provided, validate)
@@ -225,5 +232,24 @@ func ValidateUploadResumeFile(filename string, size int64, contentType string) e
 	}
 
 	return nil
+}
+
+// normalizeLanguage maps short language codes and variants to canonical full language names.
+func normalizeLanguage(lang string) string {
+	l := strings.ToLower(strings.TrimSpace(lang))
+	switch l {
+	case "en", "eng", "english":
+		return "english"
+	case "pt", "pt-br", "pt-pt", "portuguese":
+		return "portuguese"
+	case "es", "spa", "spanish":
+		return "spanish"
+	case "fr", "french":
+		return "french"
+	case "de", "german":
+		return "german"
+	default:
+		return l
+	}
 }
 

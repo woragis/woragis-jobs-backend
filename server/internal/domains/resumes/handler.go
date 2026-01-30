@@ -24,35 +24,37 @@ import (
 
 // Handler exposes resume endpoints.
 type Handler interface {
-	CreateResume(c *fiber.Ctx) error
-	UploadResume(c *fiber.Ctx) error
-	UpdateResume(c *fiber.Ctx) error
-	DeleteResume(c *fiber.Ctx) error
-	GetResume(c *fiber.Ctx) error
-	ListResumes(c *fiber.Ctx) error
-	ListResumeTags(c *fiber.Ctx) error
-	DownloadResume(c *fiber.Ctx) error
-	DownloadResumeByID(c *fiber.Ctx) error
-	PreviewResume(c *fiber.Ctx) error
-	GenerateResume(c *fiber.Ctx) error
-	MarkAsMain(c *fiber.Ctx) error
-	MarkAsFeatured(c *fiber.Ctx) error
-	UnmarkAsMain(c *fiber.Ctx) error
-	UnmarkAsFeatured(c *fiber.Ctx) error
-	RecalculateMetrics(c *fiber.Ctx) error
-	GetJobStatus(c *fiber.Ctx) error
-	RetryJob(c *fiber.Ctx) error
-	CancelJob(c *fiber.Ctx) error
-	CompleteResumeGeneration(c *fiber.Ctx) error // Internal callback for resume worker
+    CreateResume(c *fiber.Ctx) error
+    UploadResume(c *fiber.Ctx) error
+    UpdateResume(c *fiber.Ctx) error
+    DeleteResume(c *fiber.Ctx) error
+    GetResume(c *fiber.Ctx) error
+    ListResumes(c *fiber.Ctx) error
+    ListResumeTags(c *fiber.Ctx) error
+    MarkAsMain(c *fiber.Ctx) error
+    MarkAsFeatured(c *fiber.Ctx) error
+    UnmarkAsMain(c *fiber.Ctx) error
+    UnmarkAsFeatured(c *fiber.Ctx) error
+    DownloadResume(c *fiber.Ctx) error
+    DownloadResumeByID(c *fiber.Ctx) error
+    PreviewResume(c *fiber.Ctx) error
+    GenerateResume(c *fiber.Ctx) error
+    RecalculateMetrics(c *fiber.Ctx) error
+    GetJobStatus(c *fiber.Ctx) error
+    RetryJob(c *fiber.Ctx) error
+    CancelJob(c *fiber.Ctx) error
+    CompleteResumeGeneration(c *fiber.Ctx) error
 }
 
-// JobApplicationService is an interface to avoid circular dependencies
-type JobApplicationService interface {
-	GetJobApplication(ctx context.Context, applicationID uuid.UUID) (*JobApplication, error)
-	UpdateJobApplicationResumeID(ctx context.Context, applicationID uuid.UUID, resumeID uuid.UUID) error
+type handler struct {
+    service               Service
+    jobApplicationService JobApplicationService
+    queue                 Queue
+    logger                *slog.Logger
+    baseFilePath          string
 }
 
-// JobApplication represents a job application (minimal interface)
+// JobApplication represents a simplified job application used by the resumes domain.
 type JobApplication struct {
 	ID             uuid.UUID
 	UserID         uuid.UUID
@@ -62,38 +64,10 @@ type JobApplication struct {
 	CompanyName    string
 }
 
-// normalizeLanguage converts common abbreviations or variants into full language names.
-func normalizeLanguage(l string) string {
-	switch strings.ToLower(strings.TrimSpace(l)) {
-	case "en", "eng", "english":
-		return "english"
-	case "pt", "por", "portuguese", "português":
-		return "portuguese"
-	case "es", "spa", "spanish", "español":
-		return "spanish"
-	default:
-		return "english"
-	}
-}
-
-type handler struct {
-	service               Service
-	jobApplicationService JobApplicationService // Optional: for generating resumes
-	queue                 Queue                 // Redis queue for resume generation jobs
-	logger                *slog.Logger
-	baseFilePath          string // Base path where resume files are stored
-}
-
-var _ Handler = (*handler)(nil)
-
-// NewHandler constructs a resume handler.
-func NewHandler(service Service, queue Queue, baseFilePath string, logger *slog.Logger) Handler {
-	return &handler{
-		service:      service,
-		queue:        queue,
-		logger:       logger,
-		baseFilePath: baseFilePath,
-	}
+// JobApplicationService defines the subset of job application operations the resumes domain needs.
+type JobApplicationService interface {
+	GetJobApplication(ctx context.Context, applicationID uuid.UUID) (*JobApplication, error)
+	UpdateJobApplicationResumeID(ctx context.Context, applicationID uuid.UUID, resumeID uuid.UUID) error
 }
 
 // NewHandlerWithJobApplicationService constructs a resume handler with job application service.
