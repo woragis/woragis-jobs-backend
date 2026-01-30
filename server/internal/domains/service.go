@@ -94,17 +94,24 @@ func (s *serviceImpl) register(req *RegisterRequest) (*AuthResponse, error) {
 	// Check if user already exists
 	existingUser, err := s.repo.getUserByEmail(req.Email)
 	if err != nil {
-		if appErr, ok := err.(*apperrors.AppError); !ok || appErr.Code != apperrors.AUTH_USER_NOT_FOUND {
+		// allow legacy sentinel ErrUserNotFound or structured AppError with AUTH_USER_NOT_FOUND
+		if err == ErrUserNotFound {
+			// not found - proceed
+		} else if appErr, ok := err.(*apperrors.AppError); ok && appErr.Code == apperrors.AUTH_USER_NOT_FOUND {
+			// not found - proceed
+		} else {
 			return nil, apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 		}
 	}
 	if existingUser != nil {
-		return nil, apperrors.New(apperrors.AUTH_EMAIL_ALREADY_EXISTS)
+		// Return legacy sentinel error expected by unit tests
+		return nil, ErrUserAlreadyExists
 	}
 
 	// Validate password strength
 	if err := auth.CheckPasswordStrength(req.Password); err != nil {
-		return nil, apperrors.New(apperrors.AUTH_PASSWORD_TOO_SHORT)
+		// Return legacy sentinel error expected by unit tests
+		return nil, ErrPasswordTooWeak
 	}
 
 	// Hash password
@@ -207,8 +214,12 @@ func (s *serviceImpl) login(req *LoginRequest, userAgent, ipAddress string) (*Au
 	}
 
 	if err != nil {
+		// If repository indicates user not found, return legacy sentinel ErrInvalidCredentials
+		if err == ErrUserNotFound {
+			return nil, ErrInvalidCredentials
+		}
 		if appErr, ok := err.(*apperrors.AppError); ok && appErr.Code == apperrors.AUTH_USER_NOT_FOUND {
-			return nil, apperrors.New(apperrors.AUTH_INVALID_CREDENTIALS)
+			return nil, ErrInvalidCredentials
 		}
 		return nil, apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 	}
@@ -221,7 +232,8 @@ func (s *serviceImpl) login(req *LoginRequest, userAgent, ipAddress string) (*Au
 	// Verify password
 	if err := auth.VerifyPassword(req.Password, user.Password); err != nil {
 		appmetrics.RecordUserLogin(false)
-		return nil, apperrors.New(apperrors.AUTH_INVALID_CREDENTIALS)
+		// Return legacy sentinel error expected by unit tests
+		return nil, ErrInvalidCredentials
 	}
 
 	// Generate tokens
@@ -268,15 +280,19 @@ func (s *serviceImpl) refreshToken(refreshToken string) (*AuthResponse, error) {
 	// Get session by refresh token
 	session, err := s.repo.getSessionByRefreshToken(refreshToken)
 	if err != nil {
+		// map repository not found to legacy sentinel
+		if err == ErrUserNotFound {
+			return nil, ErrSessionExpired
+		}
 		if appErr, ok := err.(*apperrors.AppError); ok && appErr.Code == apperrors.DB_RECORD_NOT_FOUND {
-			return nil, apperrors.New(apperrors.CSRF_TOKEN_EXPIRED).WithDetails("Session expired")
+			return nil, ErrSessionExpired
 		}
 		return nil, apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
 	}
 
 	// Check if session is valid
 	if !session.IsSessionValid() {
-		return nil, apperrors.New(apperrors.CSRF_TOKEN_EXPIRED).WithDetails("Session expired")
+		return nil, ErrSessionExpired
 	}
 
 	// Get user

@@ -109,10 +109,17 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 
 	response, err := h.service.login(&req, userAgent, ipAddress)
 	if err != nil {
-		if appErr, ok := err.(*apperrors.AppError); ok {
-			return apperrors.SendError(c, appErr)
+		// Map domain sentinel errors to structured AppError codes so tests and clients
+		// receive the expected HTTP status codes.
+		switch err {
+		case ErrInvalidCredentials:
+			return apperrors.SendError(c, apperrors.NewWithDetails(apperrors.AUTH_INVALID_CREDENTIALS, err.Error()))
+		default:
+			if appErr, ok := err.(*apperrors.AppError); ok {
+				return apperrors.SendError(c, appErr)
+			}
+			return apperrors.HandleError(c, err)
 		}
-		return apperrors.HandleError(c, err)
 	}
 
 	// Add user ID to span after successful login
