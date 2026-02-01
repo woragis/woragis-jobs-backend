@@ -1,0 +1,20 @@
+HTTP/1.1 200 OK
+Server: Woragis
+Date: Sun, 01 Feb 2026 03:24:19 GMT
+Content-Type: application/json
+Content-Length: 72
+X-Xss-Protection: 1; mode=block
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: no-referrer
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none';
+Permissions-Policy: geolocation=(), microphone=(), camera=()
+Vary: Origin
+X-Trace-Id: c1cdb9b8ba6894718e507dbb21d008c3
+Traceparent: 00-c1cdb9b8ba6894718e507dbb21d008c3-87cbce3e39de513e-01
+X-Csrf-Token: awbueea1K0Ev6XCV5iNl6PYZ3hGTwoY-LH_1sY44Mdg=
+X-Ratelimit-Limit: 100
+X-Ratelimit-Remaining: 99
+X-Ratelimit-Reset: 60
+Set-Cookie: csrf_token=awbueea1K0Ev6XCV5iNl6PYZ3hGTwoY-LH_1sY44Mdg=; max-age=3600; path=/; SameSite=Lax
+

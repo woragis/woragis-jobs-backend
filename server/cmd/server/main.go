@@ -429,6 +429,9 @@ func main() {
 	// Setup jobs domain routes
 	slogLogger.Info("setting up routes...")
 	jobsdomain.SetupRoutes(api, dbManager, jwtManager, aiServiceURL, slogLogger)
+	
+	// Setup public routes (no auth required)
+	jobsdomain.SetupPublicRoutes(app, dbManager, slogLogger)
 	slogLogger.Info("routes configured successfully")
 
 	// Setup graceful shutdown

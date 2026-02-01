@@ -362,6 +362,7 @@ func (h *handler) ListJobApplications(c *fiber.Ctx) error {
 	language := c.Query("language")
 	limit := c.QueryInt("limit", 50)
 	offset := c.QueryInt("offset", 0)
+	page := c.QueryInt("page", 0)
 
 	// Validate query parameters
 	if err := ValidateListJobApplicationsQueryParams(limit, offset, website, status, resumeIDStr, interestLevel, source, applicationMethod, language); err != nil {
@@ -397,22 +398,27 @@ func (h *handler) ListJobApplications(c *fiber.Ctx) error {
 		filters.Language = &language
 	}
 
-	// Pagination
+	// Pagination - prefer `page` if provided (frontend sends `page`), otherwise use `offset`.
 	if limit > 0 {
 		filters.Limit = limit
 	}
-	if offset > 0 {
+	if page > 0 {
+		// convert page -> offset (1-based pages)
+		filters.Offset = (page-1) * filters.Limit
+	} else if offset > 0 {
 		filters.Offset = offset
 	}
 
-	applications, err := h.service.ListJobApplications(c.Context(), filters)
+	applications, total, err := h.service.ListJobApplications(c.Context(), filters)
 	if err != nil {
 		return h.handleError(c, err)
 	}
 
 	return response.Success(c, fiber.StatusOK, fiber.Map{
 		"applications": applications,
-		"count":        len(applications),
+		"total":        total,
+		"limit":        filters.Limit,
+		"offset":       filters.Offset,
 	})
 }
 
@@ -466,7 +472,7 @@ type updateJobApplicationPayload struct {
 	NextInterviewDate *string   `json:"nextInterviewDate,omitempty"` // ISO 8601 format
 	Source            *string   `json:"source,omitempty"`
 	ApplicationMethod *string  `json:"applicationMethod,omitempty"`
-	Language          *string   `json:"language,omitempty"` // ISO 639-1 language code (2 characters)
+	Language          *string   `json:"language,omitempty"` // Freeform language string (e.g., "english", "pt-BR", "日本語")
 }
 
 func (h *handler) UpdateJobApplication(c *fiber.Ctx) error {
@@ -551,13 +557,14 @@ func (h *handler) UpdateJobApplication(c *fiber.Ctx) error {
 	updates.Source = payload.Source
 	updates.ApplicationMethod = payload.ApplicationMethod
 	if payload.Language != nil {
-		// Validate language code is exactly 2 characters
-		if len(*payload.Language) != 2 {
+		// Accept freeform language strings (2-100 chars)
+		l := strings.TrimSpace(*payload.Language)
+		if len(l) < 2 || len(l) > 100 {
 			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-				"message": "language must be exactly 2 characters (ISO 639-1 code)",
+				"message": "language must be between 2 and 100 characters",
 			})
 		}
-		updates.Language = payload.Language
+		updates.Language = &l
 	}
 
 	application, err := h.service.UpdateJobApplication(c.Context(), applicationID, updates)

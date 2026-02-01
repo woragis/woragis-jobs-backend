@@ -15,7 +15,7 @@ type Repository interface {
 	CreateJobApplication(ctx context.Context, application *JobApplication) error
 	UpdateJobApplication(ctx context.Context, application *JobApplication) error
 	GetJobApplication(ctx context.Context, applicationID uuid.UUID) (*JobApplication, error)
-	ListJobApplications(ctx context.Context, filters JobApplicationFilters) ([]JobApplication, error)
+	ListJobApplications(ctx context.Context, filters JobApplicationFilters) ([]JobApplication, int64, error)
 	DeleteJobApplication(ctx context.Context, applicationID uuid.UUID) error
 }
 
@@ -76,9 +76,10 @@ func (r *gormRepository) GetJobApplication(ctx context.Context, applicationID uu
 	return &application, nil
 }
 
-func (r *gormRepository) ListJobApplications(ctx context.Context, filters JobApplicationFilters) ([]JobApplication, error) {
+func (r *gormRepository) ListJobApplications(ctx context.Context, filters JobApplicationFilters) ([]JobApplication, int64, error) {
 	var applications []JobApplication
 	query := r.db.WithContext(ctx).Model(&JobApplication{})
+	var total int64 = 0
 
 	if filters.UserID != nil {
 		query = query.Where("user_id = ?", *filters.UserID)
@@ -114,11 +115,42 @@ func (r *gormRepository) ListJobApplications(ctx context.Context, filters JobApp
 
 	query = query.Order("created_at DESC")
 
-	if err := query.Find(&applications).Error; err != nil {
-		return nil, apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
+	// First compute total count for the filters
+	countQuery := r.db.WithContext(ctx).Model(&JobApplication{})
+	if filters.UserID != nil {
+		countQuery = countQuery.Where("user_id = ?", *filters.UserID)
+	}
+	if filters.Website != nil {
+		countQuery = countQuery.Where("website = ?", *filters.Website)
+	}
+	if filters.Status != nil {
+		countQuery = countQuery.Where("status = ?", *filters.Status)
+	}
+	if filters.ResumeID != nil {
+		countQuery = countQuery.Where("resume_id = ?", *filters.ResumeID)
+	}
+	if filters.InterestLevel != nil {
+		countQuery = countQuery.Where("interest_level = ?", *filters.InterestLevel)
+	}
+	if filters.Source != nil {
+		countQuery = countQuery.Where("source = ?", *filters.Source)
+	}
+	if filters.ApplicationMethod != nil {
+		countQuery = countQuery.Where("application_method = ?", *filters.ApplicationMethod)
+	}
+	if filters.Language != nil {
+		countQuery = countQuery.Where("language = ?", *filters.Language)
 	}
 
-	return applications, nil
+	if err := countQuery.Count(&total).Error; err != nil {
+		return nil, 0, apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
+	}
+
+	if err := query.Find(&applications).Error; err != nil {
+		return nil, 0, apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
+	}
+
+	return applications, total, nil
 }
 
 func (r *gormRepository) DeleteJobApplication(ctx context.Context, applicationID uuid.UUID) error {

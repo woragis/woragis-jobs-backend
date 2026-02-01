@@ -149,18 +149,13 @@ func ValidateGenerateResumePayload(payload *generateResumePayload) error {
 		}
 	}
 
-	// Validate language (optional). Accept either 2-letter ISO codes or full language names.
+	// Validate language (optional). Accept freeform language strings, but enforce length limits.
 	if payload.Language != "" {
-		l := strings.ToLower(strings.TrimSpace(payload.Language))
-		allowedFull := map[string]bool{"english": true, "portuguese": true, "spanish": true, "french": true, "german": true}
-		if len(l) == 2 {
-			// accept two-letter codes (e.g., en, pt, es)
-			if l != strings.ToLower(l) {
-				return fmt.Errorf("language: must be lowercase")
-			}
-		} else if !allowedFull[l] {
-			return fmt.Errorf("language: unsupported value")
+		l := strings.TrimSpace(payload.Language)
+		if len(l) < 2 || len(l) > 100 {
+			return fmt.Errorf("language: must be between 2 and 100 characters")
 		}
+		// allow two-letter codes or any readable string; caller/service may normalize common codes
 	}
 
 	// Validate template (optional, but if provided, validate)

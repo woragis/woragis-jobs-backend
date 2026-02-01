@@ -104,3 +104,39 @@ func SetupRoutes(api fiber.Router, dbManager *database.Manager, jwtManager *auth
 	resumes.SetupRoutes(api.Group("/resumes"), resumeHandler)
 	jobwebsites.SetupRoutes(api.Group("/job-websites"), jobWebsiteHandler)
 }
+
+// SetupPublicRoutes sets up public routes (no authentication required)
+func SetupPublicRoutes(app fiber.Router, dbManager *database.Manager, logger *slog.Logger) {
+	db := dbManager.GetPostgres()
+	
+	// Initialize repository for public resume access
+	resumeRepo := resumes.NewGormRepository(db)
+	
+	// Initialize HTTP publisher for resume-generator
+	resumeGeneratorURL := os.Getenv("RESUME_GENERATOR_URL")
+	timeoutMs := 5000
+	if v := os.Getenv("RESUME_GENERATOR_TIMEOUT_MS"); v != "" {
+		if t, err := strconv.Atoi(v); err == nil && t > 0 {
+			timeoutMs = t
+		}
+	}
+	
+	var resumePublisher resumes.RabbitMQPublisher = resumes.NewNoOpPublisher(logger)
+	if resumeGeneratorURL != "" {
+		resumePublisher = resumes.NewHTTPPublisher(resumeGeneratorURL, timeoutMs, logger)
+	}
+	
+	// Initialize service and handler for public routes
+	resumeService := resumes.NewService(resumeRepo, resumePublisher, logger)
+	
+	var resumeQueue resumes.Queue
+	if dbManager.GetRedis() != nil {
+		resumeQueue = resumes.NewRedisQueue(dbManager.GetRedis())
+	}
+	
+	jobAppServiceAdapter := newJobApplicationServiceAdapter(nil)
+	resumeHandler := resumes.NewHandlerWithJobApplicationService(resumeService, jobAppServiceAdapter, resumeQueue, "", logger)
+	
+	// Setup public routes
+	resumes.SetupPublicRoutes(app, resumeHandler)
+}

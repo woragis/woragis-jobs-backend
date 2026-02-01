@@ -92,7 +92,7 @@ type JobApplication struct {
 	ApplicationMethod   string           `gorm:"column:application_method;size:50" json:"applicationMethod,omitempty"` // "auto", "manual", "assisted"
 	
 	// Language
-	Language            string           `gorm:"column:language;size:2" json:"language,omitempty"` // ISO 639-1 language code (e.g., "en", "pt", "es")
+	Language            string           `gorm:"column:language;size:100" json:"language,omitempty"` // Freeform language string (e.g., "english", "pt-BR", "日本語")
 	
 	CreatedAt           time.Time        `gorm:"column:created_at" json:"createdAt"`
 	UpdatedAt           time.Time        `gorm:"column:updated_at" json:"updatedAt"`

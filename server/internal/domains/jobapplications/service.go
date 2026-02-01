@@ -14,7 +14,7 @@ import (
 type Service interface {
 	RequestJobApplication(ctx context.Context, userID uuid.UUID, companyName, location, jobTitle, jobURL, website string) (*JobApplication, error)
 	GetJobApplication(ctx context.Context, applicationID uuid.UUID) (*JobApplication, error)
-	ListJobApplications(ctx context.Context, filters JobApplicationFilters) ([]JobApplication, error)
+	ListJobApplications(ctx context.Context, filters JobApplicationFilters) ([]JobApplication, int64, error)
 	UpdateJobApplicationStatus(ctx context.Context, applicationID uuid.UUID, status ApplicationStatus) error
 	UpdateJobApplication(ctx context.Context, applicationID uuid.UUID, updates UpdateJobApplicationRequest) (*JobApplication, error)
 	DeleteJobApplication(ctx context.Context, applicationID uuid.UUID) error
@@ -134,7 +134,7 @@ func (s *service) RequestJobApplication(ctx context.Context, userID uuid.UUID, c
 	if s.preferencesService != nil {
 		if application.Language == "" {
 			if defaultLang, err := s.preferencesService.GetDefaultLanguage(ctx, userID); err == nil {
-				application.Language = defaultLang
+				application.Language = normalizeLanguage(defaultLang)
 			}
 		}
 		if application.SalaryCurrency == "" {
@@ -197,7 +197,7 @@ func (s *service) GetJobApplication(ctx context.Context, applicationID uuid.UUID
 	return s.repo.GetJobApplication(ctx, applicationID)
 }
 
-func (s *service) ListJobApplications(ctx context.Context, filters JobApplicationFilters) ([]JobApplication, error) {
+func (s *service) ListJobApplications(ctx context.Context, filters JobApplicationFilters) ([]JobApplication, int64, error) {
 	return s.repo.ListJobApplications(ctx, filters)
 }
 
@@ -286,7 +286,7 @@ func (s *service) UpdateJobApplication(ctx context.Context, applicationID uuid.U
 		application.ApplicationMethod = *updates.ApplicationMethod
 	}
 	if updates.Language != nil {
-		application.Language = *updates.Language
+		application.Language = normalizeLanguage(*updates.Language)
 	}
 
 	application.UpdatedAt = time.Now().UTC()
@@ -326,6 +326,26 @@ func (s *service) UpdateJobApplication(ctx context.Context, applicationID uuid.U
 	}
 
 	return application, nil
+}
+
+// normalizeLanguage maps common short codes to canonical forms but otherwise returns a trimmed string.
+func normalizeLanguage(lang string) string {
+	l := strings.ToLower(strings.TrimSpace(lang))
+	switch l {
+	case "en", "eng", "english":
+		return "english"
+	case "pt", "pt-br", "pt-pt", "portuguese":
+		return "portuguese"
+	case "es", "spa", "spanish":
+		return "spanish"
+	case "fr", "french":
+		return "french"
+	case "de", "german":
+		return "german"
+	default:
+		// Preserve original casing for user-provided values, but trim whitespace
+		return strings.TrimSpace(lang)
+	}
 }
 
 func (s *service) DeleteJobApplication(ctx context.Context, applicationID uuid.UUID) error {
@@ -401,7 +421,7 @@ func (s *service) ProcessJobApplicationJob(ctx context.Context, job *JobApplicat
 	filters := JobApplicationFilters{
 		UserID: &userID,
 	}
-	applications, err := s.repo.ListJobApplications(ctx, filters)
+	applications, _, err := s.repo.ListJobApplications(ctx, filters)
 	if err != nil {
 		return err
 	}

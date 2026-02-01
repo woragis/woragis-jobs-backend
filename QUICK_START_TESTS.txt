@@ -1,0 +1,215 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║          RESUME API CURL TESTS - QUICK START GUIDE                         ║
+║                     (With CSRF Token Support)                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+��� AVAILABLE TEST FILES
+─────────────────────────────────────────────────────────────────────────────
+1. test-resume-download.sh       ← Linux/Mac (Bash)
+2. test-resume-download.ps1      ← Windows (PowerShell)
+3. TEST_RESUME_DOWNLOAD_README.md ← Full Documentation
+4. TEST_EXECUTION_REPORT.md      ← Technical Details
+5. IMPLEMENTATION_SUMMARY.md     ← This Feature Summary
+
+��� QUICK START (Choose Your Platform)
+─────────────────────────────────────────────────────────────────────────────
+
+LINUX/MAC:
+──────────
+$ cd backend/jobs
+$ chmod +x test-resume-download.sh
+$ docker-compose up -d                 # Start services
+$ sleep 10                              # Wait for startup
+$ ./test-resume-download.sh             # Run tests
+$ ls -lh test-downloads/                # View downloads
+
+
+WINDOWS (PowerShell):
+────────────────────
+PS> cd backend\jobs
+PS> docker compose up -d                # Start services
+PS> Start-Sleep -Seconds 10             # Wait for startup
+PS> .\test-resume-download.ps1          # Run tests
+PS> Get-ChildItem test-downloads\       # View downloads
+
+
+✅ CSRF TOKEN SUPPORT - YES!
+─────────────────────────────────────────────────────────────────────────────
+The test scripts now automatically:
+✓ Retrieve CSRF token from /api/v1/csrf-token
+✓ Extract X-CSRF-Token from response headers
+✓ Include CSRF token in all API requests
+✓ Maintain session cookies across requests
+✓ Handle authentication flow with CSRF
+
+
+��� KEY FEATURES
+─────────────────────────────────────────────────────────────────────────────
+✓ 11 comprehensive test scenarios
+✓ Full CSRF token handling (as recommended)
+✓ JWT Bearer token authentication
+✓ Cookie jar session management
+✓ File download verification
+✓ Error handling (401, 403, 404)
+✓ Color-coded output
+✓ Cross-platform support (Linux, Mac, Windows)
+✓ Configurable via environment variables
+
+
+⚙️ CONFIGURATION (Optional)
+─────────────────────────────────────────────────────────────────────────────
+Linux/Mac:
+  export API_BASE_URL=http://localhost:3000
+  export AUTH_SERVICE_URL=http://localhost:3001
+  export TEST_USER_EMAIL=user@example.com
+  export TEST_USER_PASSWORD=password123
+
+Windows PowerShell:
+  $env:API_BASE_URL = "http://localhost:3000"
+  $env:AUTH_SERVICE_URL = "http://localhost:3001"
+  $env:TEST_USER_EMAIL = "user@example.com"
+  $env:TEST_USER_PASSWORD = "password123"
+
+
+��� 11 TESTS INCLUDED
+─────────────────────────────────────────────────────────────────────────────
+Test 1:  List all resumes                    [GET /api/v1/resumes]
+Test 2:  Get single resume                   [GET /api/v1/resumes/:id]
+Test 3:  Download resume by ID               [GET /api/v1/resumes/:id/download]
+Test 4:  Download resume by user (public)    [GET /resume/download?userId=X]
+Test 5:  Create resume                       [POST /api/v1/resumes] ★ CSRF
+Test 6:  List resumes with tag filter        [GET /api/v1/resumes?tags=X,Y]
+Test 7:  Generate resume                     [POST /api/v1/resumes/generate] ★ CSRF
+Test 8:  Get job status                      [GET /api/v1/resumes/jobs/:id]
+Test 9:  Authentication error (no token)     [401/403 validation]
+Test 10: 404 error handling                  [GET /api/v1/resumes/nonexistent]
+Test 11: Resume preview (public)             [GET /resume/preview?resumeId=X]
+
+★ = Requires CSRF token (state-changing requests)
+
+
+��� EXPECTED OUTPUT LOCATIONS
+─────────────────────────────────────────────────────────────────────────────
+Downloaded Files:
+  test-downloads/resume-by-id-{ID}.pdf
+  test-downloads/resume-by-user-{ID}.pdf
+  test-downloads/cookies.txt
+  test-downloads/csrf-headers.txt
+  test-downloads/headers-by-id.txt
+  test-downloads/headers-by-user.txt
+
+Test Log:
+  test-resume-results.log
+
+
+⚡ WHAT GETS TESTED
+─────────────────────────────────────────────────────────────────────────────
+✓ Resume API endpoints (all CRUD operations)
+✓ Download functionality (file integrity)
+✓ Resume generation workflow (async jobs)
+✓ Authentication (JWT bearer tokens)
+✓ CSRF protection (token validation)
+✓ Error handling (401, 403, 404 responses)
+✓ Public endpoints (no auth required)
+✓ Protected endpoints (auth required)
+✓ Tag-based filtering
+✓ Job status polling
+
+
+��� CSRF IMPLEMENTATION DETAILS
+─────────────────────────────────────────────────────────────────────────────
+1. Get CSRF Token (public endpoint)
+   GET /api/v1/csrf-token
+   Response includes: X-CSRF-Token header
+
+2. Use CSRF Token (in all requests)
+   -H "X-CSRF-Token: {token}"
+   -b cookies.txt (maintain session)
+
+3. Authenticate with CSRF
+   POST /auth/login
+   -H "X-CSRF-Token: {token}"
+   Response: JWT Bearer token
+
+4. Make API Calls with Both
+   -H "Authorization: Bearer {jwt}"
+   -H "X-CSRF-Token: {token}"
+   -b cookies.txt
+
+
+���️ TROUBLESHOOTING
+─────────────────────────────────────────────────────────────────────────────
+Services not running?
+  → docker-compose up -d
+  → Wait 10 seconds
+  → Check: docker-compose logs -f
+
+Tests show 404?
+  → Verify jobs backend is running
+  → Check: curl http://localhost:3000/healthz
+
+CSRF token not obtained?
+  → Verify API is accessible
+  → Check: curl http://localhost:3000/api/v1/csrf-token
+
+Authentication fails?
+  → Check auth service: curl http://localhost:3001/api/v1/health
+  → Verify credentials in environment variables
+  → Test with mock token if auth service down
+
+File downloads fail?
+  → Create resume first (Test 5)
+  → Check file permissions
+  → Verify ~/resume-data directory exists
+
+
+��� DOCUMENTATION FILES
+─────────────────────────────────────────────────────────────────────────────
+For complete details, see:
+
+TEST_RESUME_DOWNLOAD_README.md
+  ├─ Setup instructions
+  ├─ All 11 test scenarios explained
+  ├─ API endpoint reference
+  ├─ Troubleshooting guide
+  ├─ Configuration options
+  └─ CI/CD examples
+
+TEST_EXECUTION_REPORT.md
+  ├─ CSRF implementation details
+  ├─ Request/response flow
+  ├─ Security considerations
+  ├─ Performance metrics
+  └─ Deployment checklist
+
+IMPLEMENTATION_SUMMARY.md
+  ├─ What was implemented
+  ├─ CSRF flow diagram
+  ├─ Test coverage matrix
+  └─ Next steps
+
+
+✨ SUCCESS INDICATORS
+─────────────────────────────────────────────────────────────────────────────
+✓ CSRF token obtained
+✓ Auth token obtained
+✓ Tests 1-11 pass
+✓ HTTP 200 responses for successful requests
+✓ HTTP 404 for non-existent resources
+✓ Files downloaded to test-downloads/
+✓ No CSRF-related 403 errors
+
+
+❓ QUESTIONS?
+─────────────────────────────────────────────────────────────────────────────
+See detailed docs:
+  • TEST_RESUME_DOWNLOAD_README.md - Setup & usage
+  • TEST_EXECUTION_REPORT.md - Technical details
+  • IMPLEMENTATION_SUMMARY.md - Feature overview
+
+All test scripts and documentation ready in: backend/jobs/
+
+═════════════════════════════════════════════════════════════════════════════
+Generated: 2026-01-31
+Ready for deployment ✓
+═════════════════════════════════════════════════════════════════════════════

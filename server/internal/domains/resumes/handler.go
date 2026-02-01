@@ -710,40 +710,51 @@ func (h *handler) GenerateResume(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{"message": err.Error()})
 	}
 
-	jobAppID, err := uuid.Parse(req.JobApplicationID)
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{"message": "invalid job application ID"})
+	var jobDescription string
+	var jobAppID uuid.UUID
+	var jobApp *JobApplication
+
+	// If jobApplicationId was provided, validate and load the job application
+	if req.JobApplicationID != "" {
+		var parseErr error
+		jobAppID, parseErr = uuid.Parse(req.JobApplicationID)
+		if parseErr != nil {
+			return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{"message": "invalid job application ID"})
+		}
+
+		if h.jobApplicationService == nil {
+			return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{"message": "job application service not configured"})
+		}
+
+		var getErr error
+		jobApp, getErr = h.jobApplicationService.GetJobApplication(c.Context(), jobAppID)
+		if getErr != nil {
+			return response.Error(c, fiber.StatusNotFound, 0, fiber.Map{"message": "job application not found"})
+		}
+
+		// Verify ownership
+		if jobApp.UserID != userID {
+			return response.Error(c, fiber.StatusForbidden, 0, fiber.Map{"message": "access denied"})
+		}
+
+		// Build description from job application if not explicitly provided
+		jobDescription = jobApp.JobDescription
+		if jobDescription == "" {
+			jobDescription = fmt.Sprintf("Position: %s at %s", jobApp.JobTitle, jobApp.CompanyName)
+		}
+	} else {
+		// Use provided jobDescription for ad-hoc generation
+		jobDescription = strings.TrimSpace(req.JobDescription)
 	}
 
-	// Get job application details
-	if h.jobApplicationService == nil {
-		return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{"message": "job application service not configured"})
-	}
-
-	jobApp, err := h.jobApplicationService.GetJobApplication(c.Context(), jobAppID)
-	if err != nil {
-		return response.Error(c, fiber.StatusNotFound, 0, fiber.Map{"message": "job application not found"})
-	}
-
-	// Verify the job application belongs to the user
-	if jobApp.UserID != userID {
-		return response.Error(c, fiber.StatusForbidden, 0, fiber.Map{"message": "access denied"})
-	}
-
-	// Prepare job description
-	jobDescription := jobApp.JobDescription
-	if jobDescription == "" {
-		jobDescription = fmt.Sprintf("Position: %s at %s", jobApp.JobTitle, jobApp.CompanyName)
-	}
-
-	language := req.Language
-	if language == "" {
+	// Determine language preference
+	language := strings.TrimSpace(req.Language)
+	if language == "" && jobApp != nil {
 		language = jobApp.Language
 	}
 	if language == "" {
 		language = "english"
 	}
-
 
 	language = normalizeLanguage(language)
 
@@ -762,22 +773,26 @@ func (h *handler) GenerateResume(c *fiber.Ctx) error {
 		slog.String("userName", userName),
 	)
 
-	// Prepare metadata for service
+	// Prepare metadata for service; include job_application_id only when present
 	metadata := map[string]interface{}{
-		"job_application_id": jobAppID.String(),
-		"job_title":          jobApp.JobTitle,
-		"company_name":       jobApp.CompanyName,
-		"language":           language,
-		"user_email":         userEmail,
-		"user_name":          userName,
+		"language":   language,
+		"user_email": userEmail,
+		"user_name":  userName,
+	}
+	if jobApp != nil {
+		metadata["job_application_id"] = jobAppID.String()
+		metadata["job_title"] = jobApp.JobTitle
+		metadata["company_name"] = jobApp.CompanyName
+	} else {
+		metadata["job_description"] = jobDescription
 	}
 
-	// Call service to generate resume (which will publish to RabbitMQ)
+	// Call service to generate resume (publishes job)
 	jobID, err := h.service.GenerateResume(c.Context(), userID, jobDescription, metadata)
 	if err != nil {
 		h.logger.Error("failed to generate resume",
 			slog.String("user_id", userID.String()),
-			slog.String("job_application_id", jobAppID.String()),
+			slog.String("job_application_id", func() string { if jobApp != nil { return jobAppID.String() } ; return "" }()),
 			slog.Any("error", err),
 		)
 		return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{"message": "failed to enqueue job"})
@@ -786,7 +801,7 @@ func (h *handler) GenerateResume(c *fiber.Ctx) error {
 	h.logger.Info("Resume generation job enqueued",
 		slog.String("job_id", jobID.String()),
 		slog.String("user_id", userID.String()),
-		slog.String("job_application_id", jobAppID.String()),
+		slog.String("job_application_id", func() string { if jobApp != nil { return jobAppID.String() } ; return "" }()),
 	)
 
 	return response.Success(c, fiber.StatusAccepted, fiber.Map{
@@ -873,7 +888,10 @@ func (h *handler) GetJobStatus(c *fiber.Ctx) error {
 	}
 
 	if job.ResumeID != nil {
-		responseData["resumeId"] = job.ResumeID
+		// Provide a structured result object for compatibility with frontend polling
+		responseData["result"] = fiber.Map{
+			"resumeId": job.ResumeID,
+		}
 	}
 
 	return response.Success(c, fiber.StatusOK, responseData)
@@ -1042,17 +1060,23 @@ func (h *handler) CompleteResumeGeneration(c *fiber.Ctx) error {
 	titleValues := form.Value["title"]
 	tagsValues := form.Value["tags"]
 
-	if len(jobIDValues) == 0 || len(jobApplicationIDValues) == 0 || len(userIDValues) == 0 {
-		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{"message": "jobId, jobApplicationId, and userId are required"})
+	if len(jobIDValues) == 0 || len(userIDValues) == 0 {
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{"message": "jobId and userId are required"})
 	}
 
 	jobID := jobIDValues[0]
-	jobApplicationIDStr := jobApplicationIDValues[0]
+	jobApplicationIDStr := ""
+	if len(jobApplicationIDValues) > 0 {
+		jobApplicationIDStr = jobApplicationIDValues[0]
+	}
 	userIDStr := userIDValues[0]
 
-	jobApplicationID, err := uuid.Parse(jobApplicationIDStr)
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{"message": "invalid job application ID"})
+	var jobApplicationID uuid.UUID
+	if jobApplicationIDStr != "" {
+		jobApplicationID, err = uuid.Parse(jobApplicationIDStr)
+		if err != nil {
+			return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{"message": "invalid job application ID"})
+		}
 	}
 
 	userID, err := uuid.Parse(userIDStr)
@@ -1154,8 +1178,8 @@ func (h *handler) CompleteResumeGeneration(c *fiber.Ctx) error {
 		return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{"message": "failed to create resume"})
 	}
 
-	// Link resume to job application
-	if h.jobApplicationService != nil {
+	// Link resume to job application if provided
+	if h.jobApplicationService != nil && jobApplicationIDStr != "" {
 		if err := h.jobApplicationService.UpdateJobApplicationResumeID(c.Context(), jobApplicationID, resume.ID); err != nil {
 			h.logger.Warn("failed to link resume to job application",
 				slog.String("job_application_id", jobApplicationID.String()),
@@ -1193,3 +1217,4 @@ func (h *handler) CompleteResumeGeneration(c *fiber.Ctx) error {
 		"message":  "Resume saved successfully",
 	})
 }
+
