@@ -5,8 +5,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
-	
+
 	"woragis-jobs-service/internal/domains/jobapplications/contracttypes"
+	"woragis-jobs-service/internal/domains/jobapplications/dailyobjectives"
 	"woragis-jobs-service/internal/domains/jobapplications/interviewstages"
 	"woragis-jobs-service/internal/domains/jobapplications/joblevels"
 	"woragis-jobs-service/internal/domains/jobapplications/responses"
@@ -26,6 +27,9 @@ func SetupRoutes(api fiber.Router, handler Handler, responseHandler responses.Ha
 	// Reference data routes (job levels and contract types)
 	joblevels.RegisterRoutes(api, db, logger)
 	contracttypes.RegisterRoutes(api, db, logger)
+	
+	// Daily objectives and progress tracking
+	dailyobjectives.RegisterRoutes(api, db, logger)
 	
 	// Subdomain routes
 	responses.SetupRoutes(api.Group("/:applicationId/responses"), responseHandler)

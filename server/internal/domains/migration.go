@@ -8,6 +8,7 @@ import (
 
 	"woragis-jobs-service/internal/domains/jobapplications"
 	"woragis-jobs-service/internal/domains/jobapplications/contracttypes"
+	"woragis-jobs-service/internal/domains/jobapplications/dailyobjectives"
 	"woragis-jobs-service/internal/domains/jobapplications/interviewstages"
 	"woragis-jobs-service/internal/domains/jobapplications/joblevels"
 	"woragis-jobs-service/internal/domains/jobapplications/responses"
@@ -89,6 +90,7 @@ END$$;`).Error; execErr != nil {
 	if err := db.AutoMigrate(
 		&responses.Response{},
 		&interviewstages.InterviewStage{},
+		&dailyobjectives.DailyObjective{},
 	); err != nil {
 		return err
 	}

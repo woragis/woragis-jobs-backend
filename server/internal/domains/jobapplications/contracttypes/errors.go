@@ -1,10 +1,10 @@
 package contracttypes
 
 const (
-	ErrCodeInvalidPayload     = 11200
-	ErrCodeInvalidName        = 11201
-	ErrCodeRepositoryFailure  = 11202
-	ErrCodeNotFound           = 11203
+	ErrCodeInvalidPayload    = 11200
+	ErrCodeInvalidName       = 11201
+	ErrCodeRepositoryFailure = 11202
+	ErrCodeNotFound          = 11203
 )
 
 const (

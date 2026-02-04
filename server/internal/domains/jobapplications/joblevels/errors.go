@@ -1,11 +1,11 @@
 package joblevels
 
 const (
-	ErrCodeInvalidPayload     = 11100
-	ErrCodeInvalidSeniority   = 11101
-	ErrCodeInvalidIntensity   = 11102
-	ErrCodeRepositoryFailure  = 11103
-	ErrCodeNotFound           = 11104
+	ErrCodeInvalidPayload    = 11100
+	ErrCodeInvalidSeniority  = 11101
+	ErrCodeInvalidIntensity  = 11102
+	ErrCodeRepositoryFailure = 11103
+	ErrCodeNotFound          = 11104
 )
 
 const (
