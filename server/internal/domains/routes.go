@@ -100,7 +100,7 @@ func SetupRoutes(api fiber.Router, dbManager *database.Manager, jwtManager *auth
 	stageHandler := interviewstages.NewHandler(stageService, logger)
 
 	// Setup routes
-	jobapplications.SetupRoutes(api.Group("/job-applications"), jobAppHandler, responseHandler, stageHandler)
+	jobapplications.SetupRoutes(api.Group("/job-applications"), jobAppHandler, responseHandler, stageHandler, db, logger)
 	resumes.SetupRoutes(api.Group("/resumes"), resumeHandler)
 	jobwebsites.SetupRoutes(api.Group("/job-websites"), jobWebsiteHandler)
 }

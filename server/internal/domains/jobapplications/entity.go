@@ -64,6 +64,10 @@ type JobApplication struct {
 	// Resume relationship
 	ResumeID            *uuid.UUID       `gorm:"column:resume_id;type:uuid;index" json:"resumeId,omitempty"`
 	
+	// Job level and contract type relationships
+	JobLevelID          *uuid.UUID       `gorm:"column:job_level_id;type:uuid;index" json:"jobLevelId,omitempty"`
+	ContractTypeID      *uuid.UUID       `gorm:"column:contract_type_id;type:uuid;index" json:"contractTypeId,omitempty"`
+	
 	// Salary information
 	SalaryMin           *int             `gorm:"column:salary_min" json:"salaryMin,omitempty"`
 	SalaryMax           *int             `gorm:"column:salary_max" json:"salaryMax,omitempty"`

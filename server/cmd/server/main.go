@@ -325,7 +325,7 @@ func main() {
 
 	// Run migrations
 	slogLogger.Info("running database migrations...")
-	if err := jobsdomain.MigrateJobsTables(dbManager.GetPostgres()); err != nil {
+	if err := jobsdomain.MigrateJobsTables(dbManager.GetPostgres(), slogLogger); err != nil {
 		slogLogger.Error("failed to run jobs migrations", "error", err)
 		os.Exit(1)
 	}

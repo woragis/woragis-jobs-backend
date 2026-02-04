@@ -1,17 +1,24 @@
 package jobs
 
 import (
+	"context"
+	"log/slog"
+
 	"gorm.io/gorm"
 
 	"woragis-jobs-service/internal/domains/jobapplications"
+	"woragis-jobs-service/internal/domains/jobapplications/contracttypes"
 	"woragis-jobs-service/internal/domains/jobapplications/interviewstages"
+	"woragis-jobs-service/internal/domains/jobapplications/joblevels"
 	"woragis-jobs-service/internal/domains/jobapplications/responses"
 	"woragis-jobs-service/internal/domains/jobwebsites"
 	"woragis-jobs-service/internal/domains/resumes"
 )
 
 // MigrateJobsTables runs database migrations for jobs service
-func MigrateJobsTables(db *gorm.DB) error {
+func MigrateJobsTables(db *gorm.DB, logger *slog.Logger) error {
+	ctx := context.Background()
+	
 	// Enable UUID extension if not already enabled
 	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"").Error; err != nil {
 		return err
@@ -19,6 +26,22 @@ func MigrateJobsTables(db *gorm.DB) error {
 
 	// Enable gen_random_uuid function if not already available
 	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS \"pgcrypto\"").Error; err != nil {
+		return err
+	}
+
+	// Migrate job levels and contract types first (reference data)
+	if err := db.AutoMigrate(
+		&joblevels.JobLevel{},
+		&contracttypes.ContractType{},
+	); err != nil {
+		return err
+	}
+
+	// Seed job levels and contract types
+	if err := seedJobLevels(ctx, db, logger); err != nil {
+		return err
+	}
+	if err := seedContractTypes(ctx, db, logger); err != nil {
 		return err
 	}
 
@@ -71,4 +94,18 @@ END$$;`).Error; execErr != nil {
 	}
 
 	return nil
+}
+
+// seedJobLevels seeds predefined job levels if they don't exist.
+func seedJobLevels(ctx context.Context, db *gorm.DB, logger *slog.Logger) error {
+	repo := joblevels.NewGormRepository(db)
+	service := joblevels.NewService(repo, logger)
+	return service.SeedDefaultLevels(ctx)
+}
+
+// seedContractTypes seeds predefined contract types if they don't exist.
+func seedContractTypes(ctx context.Context, db *gorm.DB, logger *slog.Logger) error {
+	repo := contracttypes.NewGormRepository(db)
+	service := contracttypes.NewService(repo, logger)
+	return service.SeedDefaultTypes(ctx)
 }
