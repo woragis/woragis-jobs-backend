@@ -94,7 +94,9 @@ func (q *redisQueue) GetJob(ctx context.Context, jobID string) (*JobApplicationJ
 	jobData, err := q.client.Get(ctx, jobKey).Result()
 	if err != nil {
 		if err == redis.Nil {
-			return nil, NewDomainError(ErrCodeNotFound, "jobapplications: job not found")
+			return nil, NewDomainError(ErrCodeNotFound, nil, map[string]interface{}{
+				"job_id": jobID,
+			})
 		}
 		return nil, apperrors.New(apperrors.RABBITMQ_CONNECTION_FAILED)
 	}

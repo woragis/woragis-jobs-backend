@@ -24,7 +24,7 @@ type generateCoverLetterPayload struct {
 func (h *handler) GenerateCoverLetter(c *fiber.Ctx) error {
 	applicationID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 			"message": "invalid application id",
 		})
 	}

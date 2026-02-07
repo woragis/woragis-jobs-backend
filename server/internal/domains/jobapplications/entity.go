@@ -131,25 +131,47 @@ func NewJobApplication(userID uuid.UUID, companyName, location, jobTitle, jobURL
 // Validate ensures job application invariants hold.
 func (j *JobApplication) Validate() error {
 	if j.ID == uuid.Nil {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyApplicationID)
+		return NewDomainError(ErrCodeInvalidPayload, nil, map[string]interface{}{
+			"field": "id",
+			"reason": "required",
+		})
 	}
 	if j.UserID == uuid.Nil {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyUserID)
+		return NewDomainError(ErrCodeInvalidPayload, nil, map[string]interface{}{
+			"field": "userId",
+			"reason": "required",
+		})
 	}
 	if j.CompanyName == "" {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyCompanyName)
+		return NewDomainError(ErrCodeInvalidPayload, nil, map[string]interface{}{
+			"field": "companyName",
+			"reason": "required",
+		})
 	}
 	if j.JobTitle == "" {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyJobTitle)
+		return NewDomainError(ErrCodeInvalidPayload, nil, map[string]interface{}{
+			"field": "jobTitle",
+			"reason": "required",
+		})
 	}
 	if j.JobURL == "" {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyJobURL)
+		return NewDomainError(ErrCodeInvalidPayload, nil, map[string]interface{}{
+			"field": "jobUrl",
+			"reason": "required",
+		})
 	}
 	if j.Website == "" {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyWebsite)
+		return NewDomainError(ErrCodeInvalidPayload, nil, map[string]interface{}{
+			"field": "website",
+			"reason": "required",
+		})
 	}
 	if !isValidStatus(j.Status) {
-		return NewDomainError(ErrCodeInvalidStatus, ErrUnsupportedStatus)
+		return NewDomainError(ErrCodeInvalidStatus, nil, map[string]interface{}{
+			"field": "status",
+			"reason": "invalid value",
+			"providedValue": string(j.Status),
+		})
 	}
 	return nil
 }
@@ -195,7 +217,11 @@ func (j *JobApplication) MarkProcessing() {
 // UpdateStatus updates the application status.
 func (j *JobApplication) UpdateStatus(status ApplicationStatus) error {
 	if !isValidStatus(status) {
-		return NewDomainError(ErrCodeInvalidStatus, ErrUnsupportedStatus)
+		return NewDomainError(ErrCodeInvalidStatus, nil, map[string]interface{}{
+			"field": "status",
+			"reason": "invalid value",
+			"providedValue": string(status),
+		})
 	}
 	j.Status = status
 	j.UpdatedAt = time.Now().UTC()

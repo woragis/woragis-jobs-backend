@@ -162,21 +162,21 @@ func (h *handler) CreateJobApplication(c *fiber.Ctx) error {
 	// Get user ID from context (set by auth validation middleware)
 	userID, err := middleware.GetUserIDFromFiberContext(c)
 	if err != nil {
-		return response.Error(c, fiber.StatusUnauthorized, 401, fiber.Map{
+		return response.Error(c, fiber.StatusUnauthorized, 0, fiber.Map{
 			"message": "authentication required",
 		})
 	}
 
 	var payload createJobApplicationPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 			"message": "invalid request payload",
 		})
 	}
 
 	// Validate payload
 	if err := ValidateCreateJobApplicationPayload(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 			"message": err.Error(),
 		})
 	}
@@ -262,7 +262,7 @@ func (h *handler) CreateJobApplication(c *fiber.Ctx) error {
 func (h *handler) GetJobApplication(c *fiber.Ctx) error {
 	applicationID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 			"message": "invalid application id",
 		})
 	}
@@ -342,7 +342,7 @@ func (h *handler) ListJobApplications(c *fiber.Ctx) error {
 	// Get user ID from context
 	userID, err := middleware.GetUserIDFromFiberContext(c)
 	if err != nil {
-		return response.Error(c, fiber.StatusUnauthorized, 401, fiber.Map{
+		return response.Error(c, fiber.StatusUnauthorized, 0, fiber.Map{
 			"message": "authentication required",
 		})
 	}
@@ -366,7 +366,7 @@ func (h *handler) ListJobApplications(c *fiber.Ctx) error {
 
 	// Validate query parameters
 	if err := ValidateListJobApplicationsQueryParams(limit, offset, website, status, resumeIDStr, interestLevel, source, applicationMethod, language); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 			"message": err.Error(),
 		})
 	}
@@ -425,21 +425,21 @@ func (h *handler) ListJobApplications(c *fiber.Ctx) error {
 func (h *handler) UpdateJobApplicationStatus(c *fiber.Ctx) error {
 	applicationID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 			"message": "invalid application id",
 		})
 	}
 
 	var payload updateStatusPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 			"message": "invalid request payload",
 		})
 	}
 
 	// Validate payload
 	if err := ValidateUpdateStatusPayload(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 			"message": err.Error(),
 		})
 	}
@@ -478,21 +478,21 @@ type updateJobApplicationPayload struct {
 func (h *handler) UpdateJobApplication(c *fiber.Ctx) error {
 	applicationID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 			"message": "invalid application id",
 		})
 	}
 
 	var payload updateJobApplicationPayload
 	if err := c.BodyParser(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 			"message": "invalid request payload",
 		})
 	}
 
 	// Validate payload
 	if err := ValidateUpdateJobApplicationPayload(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 			"message": err.Error(),
 		})
 	}
@@ -502,7 +502,7 @@ func (h *handler) UpdateJobApplication(c *fiber.Ctx) error {
 	if payload.ResumeID != nil {
 		resumeID, err := uuid.Parse(*payload.ResumeID)
 		if err != nil {
-			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+			return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 				"message": "invalid resume id",
 			})
 		}
@@ -515,7 +515,7 @@ func (h *handler) UpdateJobApplication(c *fiber.Ctx) error {
 	if payload.Deadline != nil {
 		deadline, err := time.Parse(time.RFC3339, *payload.Deadline)
 		if err != nil {
-			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+			return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 				"message": "invalid deadline format, use ISO 8601",
 			})
 		}
@@ -529,7 +529,7 @@ func (h *handler) UpdateJobApplication(c *fiber.Ctx) error {
 	if payload.FollowUpDate != nil {
 		followUpDate, err := time.Parse(time.RFC3339, *payload.FollowUpDate)
 		if err != nil {
-			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+			return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 				"message": "invalid follow-up date format, use ISO 8601",
 			})
 		}
@@ -538,7 +538,7 @@ func (h *handler) UpdateJobApplication(c *fiber.Ctx) error {
 	if payload.ResponseReceivedAt != nil {
 		responseReceivedAt, err := time.Parse(time.RFC3339, *payload.ResponseReceivedAt)
 		if err != nil {
-			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+			return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 				"message": "invalid response received date format, use ISO 8601",
 			})
 		}
@@ -548,7 +548,7 @@ func (h *handler) UpdateJobApplication(c *fiber.Ctx) error {
 	if payload.NextInterviewDate != nil {
 		nextInterviewDate, err := time.Parse(time.RFC3339, *payload.NextInterviewDate)
 		if err != nil {
-			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+			return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 				"message": "invalid next interview date format, use ISO 8601",
 			})
 		}
@@ -560,7 +560,7 @@ func (h *handler) UpdateJobApplication(c *fiber.Ctx) error {
 		// Accept freeform language strings (2-100 chars)
 		l := strings.TrimSpace(*payload.Language)
 		if len(l) < 2 || len(l) > 100 {
-			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+			return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 				"message": "language must be between 2 and 100 characters",
 			})
 		}
@@ -578,14 +578,14 @@ func (h *handler) UpdateJobApplication(c *fiber.Ctx) error {
 func (h *handler) DeleteJobApplication(c *fiber.Ctx) error {
 	applicationID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
+		return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
 			"message": "invalid application id",
 		})
 	}
 
 	userID, err := middleware.GetUserIDFromFiberContext(c)
 	if err != nil {
-		return response.Error(c, fiber.StatusUnauthorized, 401, fiber.Map{
+		return response.Error(c, fiber.StatusUnauthorized, 0, fiber.Map{
 			"message": "authentication required",
 		})
 	}
@@ -597,7 +597,7 @@ func (h *handler) DeleteJobApplication(c *fiber.Ctx) error {
 	}
 
 	if application.UserID != userID {
-		return response.Error(c, fiber.StatusForbidden, ErrCodeAccessDenied, fiber.Map{
+		return response.Error(c, fiber.StatusForbidden, 0, fiber.Map{
 			"message": "access denied",
 		})
 	}
@@ -615,6 +615,24 @@ func (h *handler) DeleteJobApplication(c *fiber.Ctx) error {
 }
 
 func (h *handler) handleError(c *fiber.Ctx, err error) error {
+	// Check if it's a DomainError (from this domain)
+	if domainErr, ok := AsDomainError(err); ok {
+		return response.Error(c, domainErr.GetHTTPStatus(), 0, fiber.Map{
+			"error_code": domainErr.Code,
+			"message":    domainErr.Message,
+			"details":    domainErr.Context,
+		})
+	}
+
+	// Log unexpected errors
+	if h.logger != nil {
+		h.logger.Error("unexpected error in jobapplications handler",
+			slog.Any("error", err),
+			slog.String("error_type", fmt.Sprintf("%T", err)),
+		)
+	}
+
+	// Fall back to generic app error handling for unknown error types
 	return apperrors.HandleError(c, err)
 }
 

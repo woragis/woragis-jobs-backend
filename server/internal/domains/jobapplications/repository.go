@@ -6,8 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-
-	apperrors "woragis-jobs-service/pkg/errors"
 )
 
 // Repository defines persistence operations for job applications.
@@ -44,23 +42,26 @@ func NewGormRepository(db *gorm.DB) Repository {
 
 func (r *gormRepository) CreateJobApplication(ctx context.Context, application *JobApplication) error {
 	if err := application.Validate(); err != nil {
-		return apperrors.NewWithDetails(apperrors.VALIDATION_INVALID_INPUT, err.Error())
+		// Validation error is already a DomainError
+		return err
 	}
+	
 	if err := r.db.WithContext(ctx).Create(application).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return apperrors.New(apperrors.JOB_APP_ALREADY_EXISTS)
-		}
-		return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
+		// Convert database error to DomainError
+		return handleDatabaseError(err)
 	}
 	return nil
 }
 
 func (r *gormRepository) UpdateJobApplication(ctx context.Context, application *JobApplication) error {
 	if err := application.Validate(); err != nil {
-		return apperrors.NewWithDetails(apperrors.VALIDATION_INVALID_INPUT, err.Error())
+		// Validation error is already a DomainError
+		return err
 	}
+	
 	if err := r.db.WithContext(ctx).Save(application).Error; err != nil {
-		return apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
+		// Convert database error to DomainError
+		return handleDatabaseError(err)
 	}
 	return nil
 }
@@ -69,9 +70,12 @@ func (r *gormRepository) GetJobApplication(ctx context.Context, applicationID uu
 	var application JobApplication
 	if err := r.db.WithContext(ctx).Where("id = ?", applicationID).First(&application).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperrors.New(apperrors.JOB_APP_NOT_FOUND)
+			return nil, NewDomainError(ErrCodeNotFound, err, map[string]interface{}{
+				"application_id": applicationID.String(),
+			})
 		}
-		return nil, apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
+		// Convert database error to DomainError
+		return nil, handleDatabaseError(err)
 	}
 	return &application, nil
 }
@@ -143,11 +147,13 @@ func (r *gormRepository) ListJobApplications(ctx context.Context, filters JobApp
 	}
 
 	if err := countQuery.Count(&total).Error; err != nil {
-		return nil, 0, apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
+		// Convert database error to DomainError
+		return nil, 0, handleDatabaseError(err)
 	}
 
 	if err := query.Find(&applications).Error; err != nil {
-		return nil, 0, apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
+		// Convert database error to DomainError
+		return nil, 0, handleDatabaseError(err)
 	}
 
 	return applications, total, nil
@@ -156,10 +162,13 @@ func (r *gormRepository) ListJobApplications(ctx context.Context, filters JobApp
 func (r *gormRepository) DeleteJobApplication(ctx context.Context, applicationID uuid.UUID) error {
 	result := r.db.WithContext(ctx).Delete(&JobApplication{}, applicationID)
 	if result.Error != nil {
-		return apperrors.Wrap(apperrors.DB_QUERY_FAILED, result.Error)
+		// Convert database error to DomainError
+		return handleDatabaseError(result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return apperrors.New(apperrors.JOB_APP_NOT_FOUND)
+		return NewDomainError(ErrCodeNotFound, nil, map[string]interface{}{
+			"application_id": applicationID.String(),
+		})
 	}
 	return nil
 }
