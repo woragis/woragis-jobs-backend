@@ -7,7 +7,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
-	apperrors "woragis-jobs-service/pkg/errors"
 	"woragis-jobs-service/pkg/response"
 )
 
@@ -53,9 +52,9 @@ type updateJobWebsitePayload struct {
 func (h *handler) CreateJobWebsite(c *fiber.Ctx) error {
 	var payload createJobWebsitePayload
 	if err := c.BodyParser(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid request payload",
-		})
+		return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+			"reason": "invalid request payload",
+		}))
 	}
 
 	website, err := h.service.CreateJobWebsite(
@@ -76,9 +75,9 @@ func (h *handler) CreateJobWebsite(c *fiber.Ctx) error {
 func (h *handler) GetJobWebsite(c *fiber.Ctx) error {
 	websiteID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid website id",
-		})
+		return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+			"reason": "invalid website id",
+		}))
 	}
 
 	website, err := h.service.GetJobWebsite(c.Context(), websiteID)
@@ -102,26 +101,40 @@ func (h *handler) ListJobWebsites(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
-	return response.Success(c, fiber.StatusOK, fiber.Map{
-		"websites": websites,
-		"count":    len(websites),
+	return response.Success(c, fiber.StatusOK, websites)
+}
+
+// handleError processes domain errors into HTTP responses
+func (h *handler) handleError(c *fiber.Ctx, err error) error {
+	if domainErr, ok := AsDomainError(err); ok {
+		return response.Error(c, domainErr.GetHTTPStatus(), 0, fiber.Map{
+			"error_code": domainErr.Code,
+			"message":    domainErr.Message,
+			"details":    domainErr.Context,
+		})
+	}
+	return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{
+		"error_code": "WEB999",
+		"message":    "Internal server error",
 	})
 }
 
 func (h *handler) UpdateJobWebsite(c *fiber.Ctx) error {
 	websiteID, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid website id",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid website id",
+		   })
+	   }
 
 	var payload updateJobWebsitePayload
-	if err := c.BodyParser(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid request payload",
-		})
-	}
+	   if err := c.BodyParser(&payload); err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid request payload",
+		   })
+	   }
 
 	updates := JobWebsiteUpdates(payload)
 
@@ -135,11 +148,12 @@ func (h *handler) UpdateJobWebsite(c *fiber.Ctx) error {
 
 func (h *handler) ResetCounter(c *fiber.Ctx) error {
 	websiteID, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid website id",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid website id",
+		   })
+	   }
 
 	if err := h.service.ResetCount(c.Context(), websiteID); err != nil {
 		return h.handleError(c, err)
@@ -155,11 +169,12 @@ func (h *handler) ResetCounter(c *fiber.Ctx) error {
 
 func (h *handler) DeleteJobWebsite(c *fiber.Ctx) error {
 	websiteID, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid website id",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid website id",
+		   })
+	   }
 
 	if err := h.service.DeleteJobWebsite(c.Context(), websiteID); err != nil {
 		return h.handleError(c, err)
@@ -170,7 +185,5 @@ func (h *handler) DeleteJobWebsite(c *fiber.Ctx) error {
 	})
 }
 
-func (h *handler) handleError(c *fiber.Ctx, err error) error {
-	return apperrors.HandleError(c, err)
-}
+// ...existing code...
 

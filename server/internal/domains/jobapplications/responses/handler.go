@@ -54,9 +54,9 @@ type updateResponsePayload struct {
 func (h *handler) CreateResponse(c *fiber.Ctx) error {
 	var payload createResponsePayload
 	if err := c.BodyParser(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid request payload",
-		})
+		return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+			"reason": "invalid request payload",
+		}))
 	}
 
 	// Get applicationId from route params (when nested) or payload
@@ -65,16 +65,16 @@ func (h *handler) CreateResponse(c *fiber.Ctx) error {
 	if applicationIDStr := c.Params("applicationId"); applicationIDStr != "" {
 		applicationID, err = uuid.Parse(applicationIDStr)
 		if err != nil {
-			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-				"message": "invalid job application id in route",
-			})
+			return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+				"reason": "invalid job application id in route",
+			}))
 		}
 	} else {
 		applicationID, err = uuid.Parse(payload.JobApplicationID)
 		if err != nil {
-			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-				"message": "invalid job application id",
-			})
+			return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+				"reason": "invalid job application id",
+			}))
 		}
 	}
 
@@ -82,9 +82,9 @@ func (h *handler) CreateResponse(c *fiber.Ctx) error {
 	if payload.ResponseDate != "" {
 		parsedDate, err := time.Parse(time.RFC3339, payload.ResponseDate)
 		if err != nil {
-			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-				"message": "invalid response date format, use ISO 8601",
-			})
+			return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+				"reason": "invalid response date format, use ISO 8601",
+			}))
 		}
 		responseDate = parsedDate
 	}
@@ -123,11 +123,12 @@ func (h *handler) CreateResponse(c *fiber.Ctx) error {
 
 func (h *handler) GetResponse(c *fiber.Ctx) error {
 	responseID, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid response id",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid response id",
+		   })
+	   }
 
 	resp, err := h.service.GetResponse(c.Context(), responseID)
 	if err != nil {
@@ -178,18 +179,20 @@ func (h *handler) ListResponses(c *fiber.Ctx) error {
 
 func (h *handler) UpdateResponse(c *fiber.Ctx) error {
 	responseID, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid response id",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid response id",
+		   })
+	   }
 
 	var payload updateResponsePayload
-	if err := c.BodyParser(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid request payload",
-		})
-	}
+	   if err := c.BodyParser(&payload); err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid request payload",
+		   })
+	   }
 
 	updates := UpdateResponseRequest(payload)
 
@@ -203,11 +206,12 @@ func (h *handler) UpdateResponse(c *fiber.Ctx) error {
 
 func (h *handler) DeleteResponse(c *fiber.Ctx) error {
 	responseID, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid response id",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid response id",
+		   })
+	   }
 
 	if err := h.service.DeleteResponse(c.Context(), responseID); err != nil {
 		return h.handleError(c, err)
@@ -221,22 +225,15 @@ func (h *handler) DeleteResponse(c *fiber.Ctx) error {
 
 func (h *handler) handleError(c *fiber.Ctx, err error) error {
 	if domainErr, ok := AsDomainError(err); ok {
-		statusCode := fiber.StatusInternalServerError
-		switch domainErr.Code {
-		case ErrCodeNotFound:
-			statusCode = fiber.StatusNotFound
-		case ErrCodeInvalidPayload, ErrCodeInvalidResponseType:
-			statusCode = fiber.StatusBadRequest
-		}
-
-		return response.Error(c, statusCode, domainErr.Code, fiber.Map{
-			"message": domainErr.Message,
+		return response.Error(c, domainErr.GetHTTPStatus(), 0, fiber.Map{
+			"error_code": domainErr.Code,
+			"message":    domainErr.Message,
+			"details":    domainErr.Context,
 		})
 	}
-
-	h.logger.Error("unhandled error", slog.Any("error", err))
-	return response.Error(c, fiber.StatusInternalServerError, 500, fiber.Map{
-		"message": "internal server error",
+	return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{
+		"error_code": "RSP999",
+		"message":    "Internal server error",
 	})
 }
 

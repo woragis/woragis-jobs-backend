@@ -32,7 +32,7 @@ func (h *Handler) ListTypes(c *fiber.Ctx) error {
 
 	types, err := h.service.ListTypes(ctx)
 	if err != nil {
-		return responseutil.Error(c, fiber.StatusInternalServerError, 11202, err.Error())
+		return h.handleError(c, err)
 	}
 
 	return responseutil.Success(c, fiber.StatusOK, types)
@@ -55,18 +55,27 @@ func (h *Handler) GetType(c *fiber.Ctx) error {
 
 	// Validate UUID format
 	if _, err := uuid.Parse(typeID); err != nil {
-		return responseutil.Error(c, fiber.StatusBadRequest, 11200, err.Error())
+		   return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, "invalid UUID format"))
 	}
 
 	contractType, err := h.service.GetType(ctx, typeID)
 	if err != nil {
-		if isNotFoundError(err) {
-			return responseutil.Error(c, fiber.StatusNotFound, 11203, err.Error())
-		}
-		return responseutil.Error(c, fiber.StatusInternalServerError, 11202, err.Error())
+		return h.handleError(c, err)
 	}
 
 	return responseutil.Success(c, fiber.StatusOK, contractType)
+}
+
+// handleError processes domain errors into HTTP responses
+func (h *Handler) handleError(c *fiber.Ctx, err error) error {
+	// Check if it's a DomainError
+	   // ...existing code...
+
+	// Fallback for unknown errors
+	return responseutil.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{
+		"error_code": "CTM999",
+		"message":    "Internal server error",
+	})
 }
 
 // isNotFoundError checks if an error is a not found error.

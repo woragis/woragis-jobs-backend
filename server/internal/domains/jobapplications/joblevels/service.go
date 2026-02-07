@@ -31,7 +31,10 @@ func (s *service) GetLevel(ctx context.Context, levelID string) (*JobLevel, erro
 	// Parse string to UUID
 	parsedID, err := uuid.Parse(levelID)
 	if err != nil {
-		return nil, NewDomainError(ErrCodeInvalidPayload, ErrInvalidName)
+		return nil, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+			"field":  "level_id",
+			"reason": "invalid UUID format",
+		})
 	}
 
 	return s.repo.GetLevel(ctx, parsedID)

@@ -32,7 +32,7 @@ func (h *Handler) ListLevels(c *fiber.Ctx) error {
 
 	levels, err := h.service.ListLevels(ctx)
 	if err != nil {
-		return responseutil.Error(c, fiber.StatusInternalServerError, 11100, err.Error())
+		return h.handleError(c, err)
 	}
 
 	return responseutil.Success(c, fiber.StatusOK, levels)
@@ -55,18 +55,36 @@ func (h *Handler) GetLevel(c *fiber.Ctx) error {
 
 	// Validate UUID format
 	if _, err := uuid.Parse(levelID); err != nil {
-		return responseutil.Error(c, fiber.StatusBadRequest, 11100, err.Error())
+		return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+			"field":   "id",
+			"reason":  "invalid UUID format",
+		}))
 	}
 
 	level, err := h.service.GetLevel(ctx, levelID)
 	if err != nil {
-		if isNotFoundError(err) {
-			return responseutil.Error(c, fiber.StatusNotFound, 11104, err.Error())
-		}
-		return responseutil.Error(c, fiber.StatusInternalServerError, 11103, err.Error())
+		return h.handleError(c, err)
 	}
 
 	return responseutil.Success(c, fiber.StatusOK, level)
+}
+
+// handleError processes domain errors into HTTP responses
+func (h *Handler) handleError(c *fiber.Ctx, err error) error {
+	// Check if it's a DomainError
+	if domainErr, ok := AsDomainError(err); ok {
+		return responseutil.Error(c, domainErr.GetHTTPStatus(), 0, fiber.Map{
+			"error_code": domainErr.Code,
+			"message":    domainErr.Message,
+			"details":    domainErr.Context,
+		})
+	}
+
+	// Fallback for unknown errors
+	return responseutil.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{
+		"error_code": "JOB999",
+		"message":    "Internal server error",
+	})
 }
 
 // isNotFoundError checks if an error is a not found error.

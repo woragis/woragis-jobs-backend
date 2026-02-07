@@ -1,6 +1,7 @@
 package jobwebsites
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,21 +48,21 @@ func NewJobWebsite(name, displayName, baseURL, loginURL string, dailyLimit int) 
 
 // Validate ensures job website invariants hold.
 func (j *JobWebsite) Validate() error {
-	if j.ID == uuid.Nil {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyWebsiteID)
-	}
-	if j.Name == "" {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyWebsiteName)
-	}
-	if j.DisplayName == "" {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyDisplayName)
-	}
-	if j.DailyLimit < 0 {
-		return NewDomainError(ErrCodeInvalidPayload, ErrInvalidDailyLimit)
-	}
-	if j.CurrentCount < 0 {
-		return NewDomainError(ErrCodeInvalidPayload, ErrInvalidCurrentCount)
-	}
+	   if j.ID == uuid.Nil {
+		   return NewDomainError(ErrCodeInvalidPayload, errors.New(ErrEmptyWebsiteID))
+	   }
+	   if j.Name == "" {
+		   return NewDomainError(ErrCodeInvalidPayload, errors.New(ErrEmptyWebsiteName))
+	   }
+	   if j.DisplayName == "" {
+		   return NewDomainError(ErrCodeInvalidPayload, errors.New(ErrEmptyDisplayName))
+	   }
+	   if j.DailyLimit < 0 {
+		   return NewDomainError(ErrCodeInvalidPayload, errors.New(ErrInvalidDailyLimit))
+	   }
+	   if j.CurrentCount < 0 {
+		   return NewDomainError(ErrCodeInvalidPayload, errors.New(ErrInvalidCurrentCount))
+	   }
 	return nil
 }
 
@@ -95,9 +96,9 @@ func (j *JobWebsite) ShouldReset() bool {
 
 // UpdateDailyLimit updates the daily limit.
 func (j *JobWebsite) UpdateDailyLimit(limit int) error {
-	if limit < 0 {
-		return NewDomainError(ErrCodeInvalidPayload, ErrInvalidDailyLimit)
-	}
+	   if limit < 0 {
+		   return NewDomainError(ErrCodeInvalidPayload, errors.New(ErrInvalidDailyLimit))
+	   }
 	j.DailyLimit = limit
 	j.UpdatedAt = time.Now().UTC()
 	return nil

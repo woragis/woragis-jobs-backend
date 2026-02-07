@@ -53,10 +53,12 @@ func (r *gormRepository) UpdateStage(ctx context.Context, stage *InterviewStage)
 func (r *gormRepository) GetStage(ctx context.Context, stageID uuid.UUID) (*InterviewStage, error) {
 	var stage InterviewStage
 	if err := r.db.WithContext(ctx).Where("id = ?", stageID).First(&stage).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, NewDomainError(ErrCodeNotFound, ErrStageNotFound)
-		}
-		return nil, NewDomainError(ErrCodeRepositoryFailure, ErrUnableToFetch)
+		   if errors.Is(err, gorm.ErrRecordNotFound) {
+			   return nil, NewDomainError(ErrCodeNotFound, err, map[string]interface{}{
+				   "stage_id": stageID.String(),
+			   })
+		   }
+		   return nil, NewDomainError(ErrCodeRepositoryFailure, err)
 	}
 	return &stage, nil
 }
@@ -84,21 +86,21 @@ func (r *gormRepository) ListStages(ctx context.Context, filters StageFilters) (
 
 	query = query.Order("scheduled_date ASC NULLS LAST, created_at ASC")
 
-	if err := query.Find(&stages).Error; err != nil {
-		return nil, NewDomainError(ErrCodeRepositoryFailure, ErrUnableToFetch)
-	}
+	   if err := query.Find(&stages).Error; err != nil {
+		   return nil, NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToFetch))
+	   }
 
 	return stages, nil
 }
 
 func (r *gormRepository) DeleteStage(ctx context.Context, stageID uuid.UUID) error {
 	result := r.db.WithContext(ctx).Delete(&InterviewStage{}, stageID)
-	if result.Error != nil {
-		return NewDomainError(ErrCodeRepositoryFailure, ErrUnableToUpdate)
-	}
-	if result.RowsAffected == 0 {
-		return NewDomainError(ErrCodeNotFound, ErrStageNotFound)
-	}
+	   if result.Error != nil {
+		   return NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToUpdate))
+	   }
+	   if result.RowsAffected == 0 {
+		   return NewDomainError(ErrCodeNotFound, errors.New(ErrStageNotFound))
+	   }
 	return nil
 }
 

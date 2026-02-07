@@ -35,7 +35,10 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) CreateObjective(c *fiber.Ctx) error {
 	userIDRaw := c.Locals("userID")
 	if userIDRaw == nil {
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
+		return h.handleError(c, NewDomainError(ErrCodeValidation, nil, map[string]interface{}{
+			"field":   "userID",
+			"reason":  "missing or invalid authentication token",
+		}))
 	}
 
 	var parsedUserID uuid.UUID
@@ -45,32 +48,56 @@ func (h *Handler) CreateObjective(c *fiber.Ctx) error {
 	case string:
 		id, err := uuid.Parse(v)
 		if err != nil {
-			return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
+			return h.handleError(c, NewDomainError(ErrCodeValidation, err, map[string]interface{}{
+				"field":   "userID",
+				"reason":  "invalid user ID format",
+			}))
 		}
 		parsedUserID = id
 	default:
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID type")
+		return h.handleError(c, NewDomainError(ErrCodeValidation, nil, map[string]interface{}{
+			"field":   "userID",
+			"reason":  "invalid user ID type",
+		}))
 	}
 
 	var req CreateObjectiveRequest
 	if err := c.BodyParser(&req); err != nil {
-		return responseutil.Error(c, fiber.StatusBadRequest, 12100, "Invalid JSON body: "+err.Error())
+		return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+			"reason": "invalid JSON body",
+		}))
 	}
 
-	// Explicit nil/type checks for required fields
 	if req.TotalTarget == 0 && req.JuniorTarget == 0 && req.PlenoTarget == 0 && req.SeniorTarget == 0 {
-		return responseutil.Error(c, fiber.StatusBadRequest, 12101, "Missing or invalid fields: totalTarget, juniorTarget, plenoTarget, seniorTarget must be numbers and not null")
+		return h.handleError(c, NewDomainError(ErrCodeValidation, nil, map[string]interface{}{
+			"reason": "missing or invalid fields: totalTarget, juniorTarget, plenoTarget, seniorTarget must be numbers and not null",
+		}))
 	}
 
 	objective, err := h.service.CreateObjective(c.Context(), parsedUserID, req)
 	if err != nil {
 		if IsValidationError(err) {
-			return responseutil.Error(c, fiber.StatusBadRequest, 12101, err.Error())
+			return h.handleError(c, err)
 		}
-		return responseutil.Error(c, fiber.StatusInternalServerError, 12102, err.Error())
+		return h.handleError(c, err)
 	}
 
 	return responseutil.Success(c, fiber.StatusCreated, objective)
+}
+
+// handleError processes domain errors into HTTP responses
+func (h *Handler) handleError(c *fiber.Ctx, err error) error {
+	if domainErr, ok := AsDomainError(err); ok {
+		return responseutil.Error(c, domainErr.GetHTTPStatus(), 0, fiber.Map{
+			"error_code": domainErr.Code,
+			"message":    domainErr.Message,
+			"details":    domainErr.Context,
+		})
+	}
+	return responseutil.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{
+		"error_code": "OBJ999",
+		"message":    "Internal server error",
+	})
 }
 
 // GetObjective handles GET /daily-objectives
@@ -84,7 +111,10 @@ func (h *Handler) CreateObjective(c *fiber.Ctx) error {
 func (h *Handler) GetObjective(c *fiber.Ctx) error {
 	userIDRaw := c.Locals("userID")
 	if userIDRaw == nil {
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
+		return h.handleError(c, NewDomainError(ErrCodeValidation, nil, map[string]interface{}{
+			"field":   "userID",
+			"reason":  "missing or invalid authentication token",
+		}))
 	}
 
 	var parsedUserID uuid.UUID
@@ -94,19 +124,25 @@ func (h *Handler) GetObjective(c *fiber.Ctx) error {
 	case string:
 		id, err := uuid.Parse(v)
 		if err != nil {
-			return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
+			return h.handleError(c, NewDomainError(ErrCodeValidation, err, map[string]interface{}{
+				"field":   "userID",
+				"reason":  "invalid user ID format",
+			}))
 		}
 		parsedUserID = id
 	default:
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID type")
+		return h.handleError(c, NewDomainError(ErrCodeValidation, nil, map[string]interface{}{
+			"field":   "userID",
+			"reason":  "invalid user ID type",
+		}))
 	}
 
 	objective, err := h.service.GetObjective(c.Context(), parsedUserID)
 	if err != nil {
 		if IsNotFoundError(err) {
-			return responseutil.Error(c, fiber.StatusNotFound, 12103, err.Error())
+			return h.handleError(c, err)
 		}
-		return responseutil.Error(c, fiber.StatusInternalServerError, 12102, err.Error())
+		return h.handleError(c, err)
 	}
 
 	return responseutil.Success(c, fiber.StatusOK, objective)
@@ -126,7 +162,10 @@ func (h *Handler) GetObjective(c *fiber.Ctx) error {
 func (h *Handler) UpdateObjective(c *fiber.Ctx) error {
 	userIDRaw := c.Locals("userID")
 	if userIDRaw == nil {
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
+		return h.handleError(c, NewDomainError(ErrCodeValidation, nil, map[string]interface{}{
+			"field":   "userID",
+			"reason":  "missing or invalid authentication token",
+		}))
 	}
 
 	var parsedUserID uuid.UUID
@@ -136,27 +175,35 @@ func (h *Handler) UpdateObjective(c *fiber.Ctx) error {
 	case string:
 		id, err := uuid.Parse(v)
 		if err != nil {
-			return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
+			return h.handleError(c, NewDomainError(ErrCodeValidation, err, map[string]interface{}{
+				"field":   "userID",
+				"reason":  "invalid user ID format",
+			}))
 		}
 		parsedUserID = id
 	default:
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID type")
+		return h.handleError(c, NewDomainError(ErrCodeValidation, nil, map[string]interface{}{
+			"field":   "userID",
+			"reason":  "invalid user ID type",
+		}))
 	}
 
 	var req CreateObjectiveRequest
 	if err := c.BodyParser(&req); err != nil {
-		return responseutil.Error(c, fiber.StatusBadRequest, 12100, err.Error())
+		return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+			"reason": "invalid JSON body",
+		}))
 	}
 
 	objective, err := h.service.UpdateObjective(c.Context(), parsedUserID, req)
 	if err != nil {
 		if IsValidationError(err) {
-			return responseutil.Error(c, fiber.StatusBadRequest, 12101, err.Error())
+			return h.handleError(c, err)
 		}
 		if IsNotFoundError(err) {
-			return responseutil.Error(c, fiber.StatusNotFound, 12103, err.Error())
+			return h.handleError(c, err)
 		}
-		return responseutil.Error(c, fiber.StatusInternalServerError, 12102, err.Error())
+		return h.handleError(c, err)
 	}
 
 	return responseutil.Success(c, fiber.StatusOK, objective)
@@ -173,7 +220,10 @@ func (h *Handler) UpdateObjective(c *fiber.Ctx) error {
 func (h *Handler) GetTodayProgress(c *fiber.Ctx) error {
 	userIDRaw := c.Locals("userID")
 	if userIDRaw == nil {
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
+		return h.handleError(c, NewDomainError(ErrCodeValidation, nil, map[string]interface{}{
+			"field":   "userID",
+			"reason":  "missing or invalid authentication token",
+		}))
 	}
 
 	var parsedUserID uuid.UUID
@@ -183,19 +233,25 @@ func (h *Handler) GetTodayProgress(c *fiber.Ctx) error {
 	case string:
 		id, err := uuid.Parse(v)
 		if err != nil {
-			return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
+			return h.handleError(c, NewDomainError(ErrCodeValidation, err, map[string]interface{}{
+				"field":   "userID",
+				"reason":  "invalid user ID format",
+			}))
 		}
 		parsedUserID = id
 	default:
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID type")
+		return h.handleError(c, NewDomainError(ErrCodeValidation, nil, map[string]interface{}{
+			"field":   "userID",
+			"reason":  "invalid user ID type",
+		}))
 	}
 
 	progress, err := h.service.GetTodayProgress(c.Context(), parsedUserID)
 	if err != nil {
 		if IsNotFoundError(err) {
-			return responseutil.Error(c, fiber.StatusNotFound, 12103, err.Error())
+			return h.handleError(c, err)
 		}
-		return responseutil.Error(c, fiber.StatusInternalServerError, 12102, err.Error())
+		return h.handleError(c, err)
 	}
 
 	return responseutil.Success(c, fiber.StatusOK, progress)
@@ -216,7 +272,10 @@ func (h *Handler) GetTodayProgress(c *fiber.Ctx) error {
 func (h *Handler) GetHistoricalProgress(c *fiber.Ctx) error {
 	userIDRaw := c.Locals("userID")
 	if userIDRaw == nil {
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
+		return h.handleError(c, NewDomainError(ErrCodeValidation, nil, map[string]interface{}{
+			"field":   "userID",
+			"reason":  "missing or invalid authentication token",
+		}))
 	}
 
 	var parsedUserID uuid.UUID
@@ -226,11 +285,17 @@ func (h *Handler) GetHistoricalProgress(c *fiber.Ctx) error {
 	case string:
 		id, err := uuid.Parse(v)
 		if err != nil {
-			return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
+			return h.handleError(c, NewDomainError(ErrCodeValidation, err, map[string]interface{}{
+				"field":   "userID",
+				"reason":  "invalid user ID format",
+			}))
 		}
 		parsedUserID = id
 	default:
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID type")
+		return h.handleError(c, NewDomainError(ErrCodeValidation, nil, map[string]interface{}{
+			"field":   "userID",
+			"reason":  "invalid user ID type",
+		}))
 	}
 
 	preset := c.Query("preset", "7days")
@@ -255,21 +320,29 @@ func (h *Handler) GetHistoricalProgress(c *fiber.Ctx) error {
 			from = today.AddDate(0, 0, -89)
 			to = today
 		default:
-			return responseutil.Error(c, fiber.StatusBadRequest, 12100, "Invalid preset. Use 7days, 30days, or 90days")
+			return h.handleError(c, NewDomainError(ErrCodeValidation, nil, map[string]interface{}{
+				"reason": "Invalid preset. Use 7days, 30days, or 90days",
+			}))
 		}
 	} else {
 		// Use custom dates
 		if fromStr == "" || toStr == "" {
-			return responseutil.Error(c, fiber.StatusBadRequest, 12100, "Both from and to dates required for custom range")
+			return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, nil, map[string]interface{}{
+				"reason": "Both from and to dates required for custom range",
+			}))
 		}
 
 		parsedFrom, err := time.Parse("2006-01-02", fromStr)
 		if err != nil {
-			return responseutil.Error(c, fiber.StatusBadRequest, 12100, "Invalid from date format. Use YYYY-MM-DD")
+			return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+				"reason": "Invalid from date format. Use YYYY-MM-DD",
+			}))
 		}
 		parsedTo, err := time.Parse("2006-01-02", toStr)
 		if err != nil {
-			return responseutil.Error(c, fiber.StatusBadRequest, 12100, "Invalid to date format. Use YYYY-MM-DD")
+			return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+				"reason": "Invalid to date format. Use YYYY-MM-DD",
+			}))
 		}
 
 		from = parsedFrom
@@ -278,22 +351,26 @@ func (h *Handler) GetHistoricalProgress(c *fiber.Ctx) error {
 
 	// Validate date range
 	if from.After(to) {
-		return responseutil.Error(c, fiber.StatusBadRequest, 12100, "from date cannot be after to date")
+		return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, nil, map[string]interface{}{
+			"reason": "from date cannot be after to date",
+		}))
 	}
 
 	// Limit range to max 365 days
 	maxDays := 365
 	daysDiff := int(to.Sub(from).Hours() / 24)
 	if daysDiff > maxDays {
-		return responseutil.Error(c, fiber.StatusBadRequest, 12100, "Date range cannot exceed 365 days")
+		return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, nil, map[string]interface{}{
+			"reason": "Date range cannot exceed 365 days",
+		}))
 	}
 
 	progress, err := h.service.GetHistoricalProgress(c.Context(), parsedUserID, from, to)
 	if err != nil {
 		if IsNotFoundError(err) {
-			return responseutil.Error(c, fiber.StatusNotFound, 12103, err.Error())
+			return h.handleError(c, err)
 		}
-		return responseutil.Error(c, fiber.StatusInternalServerError, 12102, err.Error())
+		return h.handleError(c, err)
 	}
 
 	return responseutil.Success(c, fiber.StatusOK, progress)

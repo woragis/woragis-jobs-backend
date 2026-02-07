@@ -84,9 +84,9 @@ func (r *gormRepository) ListJobWebsites(ctx context.Context, enabledOnly bool) 
 
 func (r *gormRepository) DeleteJobWebsite(ctx context.Context, websiteID uuid.UUID) error {
 	result := r.db.WithContext(ctx).Delete(&JobWebsite{}, websiteID)
-	if result.Error != nil {
-		return NewDomainError(ErrCodeRepositoryFailure, ErrUnableToUpdate)
-	}
+	   if result.Error != nil {
+		   return NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToUpdate))
+	   }
 	if result.RowsAffected == 0 {
 		return apperrors.New(apperrors.DB_RECORD_NOT_FOUND)
 	}

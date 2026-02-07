@@ -65,9 +65,9 @@ type completeStagePayload struct {
 func (h *handler) CreateStage(c *fiber.Ctx) error {
 	var payload createStagePayload
 	if err := c.BodyParser(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid request payload",
-		})
+		return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+			"reason": "invalid request payload",
+		}))
 	}
 
 	// Get applicationId from route params (when nested) or payload
@@ -76,16 +76,16 @@ func (h *handler) CreateStage(c *fiber.Ctx) error {
 	if applicationIDStr := c.Params("applicationId"); applicationIDStr != "" {
 		applicationID, err = uuid.Parse(applicationIDStr)
 		if err != nil {
-			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-				"message": "invalid job application id in route",
-			})
+			return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+				"reason": "invalid job application id in route",
+			}))
 		}
 	} else {
 		applicationID, err = uuid.Parse(payload.JobApplicationID)
 		if err != nil {
-			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-				"message": "invalid job application id",
-			})
+			return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+				"reason": "invalid job application id",
+			}))
 		}
 	}
 
@@ -100,9 +100,9 @@ func (h *handler) CreateStage(c *fiber.Ctx) error {
 		if payload.ScheduledDate != "" {
 			parsedDate, err := time.Parse(time.RFC3339, payload.ScheduledDate)
 			if err != nil {
-				return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-					"message": "invalid scheduled date format, use ISO 8601",
-				})
+				return h.handleError(c, NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+					"reason": "invalid scheduled date format, use ISO 8601",
+				}))
 			}
 			updates.ScheduledDate = &parsedDate
 		}
@@ -129,11 +129,12 @@ func (h *handler) CreateStage(c *fiber.Ctx) error {
 
 func (h *handler) GetStage(c *fiber.Ctx) error {
 	stageID, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid stage id",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid stage id",
+		   })
+	   }
 
 	stage, err := h.service.GetStage(c.Context(), stageID)
 	if err != nil {
@@ -188,27 +189,30 @@ func (h *handler) ListStages(c *fiber.Ctx) error {
 
 func (h *handler) UpdateStage(c *fiber.Ctx) error {
 	stageID, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid stage id",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid stage id",
+		   })
+	   }
 
 	var payload updateStagePayload
-	if err := c.BodyParser(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid request payload",
-		})
-	}
+	   if err := c.BodyParser(&payload); err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid request payload",
+		   })
+	   }
 
 	updates := UpdateStageRequest{}
 	if payload.ScheduledDate != nil {
 		parsedDate, err := time.Parse(time.RFC3339, *payload.ScheduledDate)
-		if err != nil {
-			return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-				"message": "invalid scheduled date format, use ISO 8601",
-			})
-		}
+		   if err != nil {
+			   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+				   "error_code": ErrCodeInvalidPayload,
+				   "message": "invalid scheduled date format, use ISO 8601",
+			   })
+		   }
 		updates.ScheduledDate = &parsedDate
 	}
 	updates.InterviewerName = payload.InterviewerName
@@ -227,11 +231,12 @@ func (h *handler) UpdateStage(c *fiber.Ctx) error {
 
 func (h *handler) DeleteStage(c *fiber.Ctx) error {
 	stageID, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid stage id",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid stage id",
+		   })
+	   }
 
 	if err := h.service.DeleteStage(c.Context(), stageID); err != nil {
 		return h.handleError(c, err)
@@ -245,25 +250,28 @@ func (h *handler) DeleteStage(c *fiber.Ctx) error {
 
 func (h *handler) ScheduleStage(c *fiber.Ctx) error {
 	stageID, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid stage id",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid stage id",
+		   })
+	   }
 
 	var payload scheduleStagePayload
-	if err := c.BodyParser(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid request payload",
-		})
-	}
+	   if err := c.BodyParser(&payload); err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid request payload",
+		   })
+	   }
 
 	scheduledDate, err := time.Parse(time.RFC3339, payload.ScheduledDate)
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid scheduled date format, use ISO 8601",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid scheduled date format, use ISO 8601",
+		   })
+	   }
 
 	stage, err := h.service.ScheduleStage(c.Context(), stageID, scheduledDate)
 	if err != nil {
@@ -275,25 +283,28 @@ func (h *handler) ScheduleStage(c *fiber.Ctx) error {
 
 func (h *handler) CompleteStage(c *fiber.Ctx) error {
 	stageID, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid stage id",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid stage id",
+		   })
+	   }
 
 	var payload completeStagePayload
-	if err := c.BodyParser(&payload); err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid request payload",
-		})
-	}
+	   if err := c.BodyParser(&payload); err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid request payload",
+		   })
+	   }
 
 	completedDate, err := time.Parse(time.RFC3339, payload.CompletedDate)
-	if err != nil {
-		return response.Error(c, fiber.StatusBadRequest, ErrCodeInvalidPayload, fiber.Map{
-			"message": "invalid completed date format, use ISO 8601",
-		})
-	}
+	   if err != nil {
+		   return response.Error(c, fiber.StatusBadRequest, 0, fiber.Map{
+			   "error_code": ErrCodeInvalidPayload,
+			   "message": "invalid completed date format, use ISO 8601",
+		   })
+	   }
 
 	stage, err := h.service.CompleteStage(c.Context(), stageID, completedDate, payload.Outcome)
 	if err != nil {
@@ -305,22 +316,15 @@ func (h *handler) CompleteStage(c *fiber.Ctx) error {
 
 func (h *handler) handleError(c *fiber.Ctx, err error) error {
 	if domainErr, ok := AsDomainError(err); ok {
-		statusCode := fiber.StatusInternalServerError
-		switch domainErr.Code {
-		case ErrCodeNotFound:
-			statusCode = fiber.StatusNotFound
-		case ErrCodeInvalidPayload, ErrCodeInvalidStageType, ErrCodeInvalidOutcome:
-			statusCode = fiber.StatusBadRequest
-		}
-
-		return response.Error(c, statusCode, domainErr.Code, fiber.Map{
-			"message": domainErr.Message,
+		return response.Error(c, domainErr.GetHTTPStatus(), 0, fiber.Map{
+			"error_code": domainErr.Code,
+			"message":    domainErr.Message,
+			"details":    domainErr.Context,
 		})
 	}
-
-	h.logger.Error("unhandled error", slog.Any("error", err))
-	return response.Error(c, fiber.StatusInternalServerError, 500, fiber.Map{
-		"message": "internal server error",
+	return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{
+		"error_code": "STG999",
+		"message":    "Internal server error",
 	})
 }
 

@@ -1,6 +1,7 @@
 package interviewstages
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -69,18 +70,18 @@ func NewInterviewStage(jobApplicationID uuid.UUID, stageType StageType) (*Interv
 
 // Validate ensures interview stage invariants hold.
 func (s *InterviewStage) Validate() error {
-	if s.ID == uuid.Nil {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyStageID)
-	}
-	if s.JobApplicationID == uuid.Nil {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyJobApplicationID)
-	}
-	if !isValidStageType(s.StageType) {
-		return NewDomainError(ErrCodeInvalidStageType, ErrUnsupportedStageType)
-	}
-	if !isValidOutcome(s.Outcome) {
-		return NewDomainError(ErrCodeInvalidOutcome, ErrUnsupportedOutcome)
-	}
+	   if s.ID == uuid.Nil {
+		   return NewDomainError(ErrCodeInvalidPayload, errors.New(ErrEmptyStageID))
+	   }
+	   if s.JobApplicationID == uuid.Nil {
+		   return NewDomainError(ErrCodeInvalidPayload, errors.New(ErrEmptyJobApplicationID))
+	   }
+	   if !isValidStageType(s.StageType) {
+		   return NewDomainError(ErrCodeInvalidStageType, errors.New(ErrUnsupportedStageType))
+	   }
+	   if !isValidOutcome(s.Outcome) {
+		   return NewDomainError(ErrCodeInvalidOutcome, errors.New(ErrUnsupportedOutcome))
+	   }
 	return nil
 }
 
@@ -110,9 +111,9 @@ func (s *InterviewStage) Schedule(scheduledDate time.Time) {
 
 // Complete marks the interview as completed with an outcome.
 func (s *InterviewStage) Complete(completedDate time.Time, outcome StageOutcome) error {
-	if !isValidOutcome(outcome) {
-		return NewDomainError(ErrCodeInvalidOutcome, ErrUnsupportedOutcome)
-	}
+	   if !isValidOutcome(outcome) {
+		   return NewDomainError(ErrCodeInvalidOutcome, errors.New(ErrUnsupportedOutcome))
+	   }
 	s.CompletedDate = &completedDate
 	s.Outcome = outcome
 	s.UpdatedAt = time.Now().UTC()

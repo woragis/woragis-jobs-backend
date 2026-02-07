@@ -1,6 +1,7 @@
 package responses
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,15 +53,15 @@ func NewResponse(jobApplicationID uuid.UUID, responseType ResponseType, response
 
 // Validate ensures response invariants hold.
 func (r *Response) Validate() error {
-	if r.ID == uuid.Nil {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyResponseID)
-	}
-	if r.JobApplicationID == uuid.Nil {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyJobApplicationID)
-	}
-	if !isValidResponseType(r.ResponseType) {
-		return NewDomainError(ErrCodeInvalidResponseType, ErrUnsupportedResponseType)
-	}
+	   if r.ID == uuid.Nil {
+		   return NewDomainError(ErrCodeInvalidPayload, errors.New(ErrEmptyResponseID))
+	   }
+	   if r.JobApplicationID == uuid.Nil {
+		   return NewDomainError(ErrCodeInvalidPayload, errors.New(ErrEmptyJobApplicationID))
+	   }
+	   if !isValidResponseType(r.ResponseType) {
+		   return NewDomainError(ErrCodeInvalidResponseType, errors.New(ErrUnsupportedResponseType))
+	   }
 	return nil
 }
 

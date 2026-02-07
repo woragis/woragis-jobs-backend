@@ -32,29 +32,33 @@ func (r *gormRepository) CreateObjective(ctx context.Context, objective *DailyOb
 func (r *gormRepository) GetObjective(ctx context.Context, userID uuid.UUID) (*DailyObjective, error) {
 	var objective DailyObjective
 	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).First(&objective).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, NewDomainError(ErrCodeNotFound, ErrObjectiveNotFound)
-		}
-		return nil, NewDomainError(ErrCodeRepositoryFailure, ErrUnableToFetch)
+		   if errors.Is(err, gorm.ErrRecordNotFound) {
+			   return nil, NewDomainError(ErrCodeNotFound, err, map[string]interface{}{
+				   "user_id": userID.String(),
+			   })
+		   }
+		   return nil, NewDomainError(ErrCodeRepositoryFailure, err)
 	}
 	return &objective, nil
 }
 
 func (r *gormRepository) UpdateObjective(ctx context.Context, objective *DailyObjective) error {
 	result := r.db.WithContext(ctx).Model(&DailyObjective{}).Where("user_id = ?", objective.UserID).Updates(objective)
-	if result.Error != nil {
-		return NewDomainError(ErrCodeRepositoryFailure, ErrUnableToUpdate)
-	}
-	if result.RowsAffected == 0 {
-		return NewDomainError(ErrCodeNotFound, ErrObjectiveNotFound)
-	}
+	   if result.Error != nil {
+		   return NewDomainError(ErrCodeRepositoryFailure, result.Error)
+	   }
+	   if result.RowsAffected == 0 {
+		   return NewDomainError(ErrCodeNotFound, nil, map[string]interface{}{
+			   "user_id": objective.UserID.String(),
+		   })
+	   }
 	return nil
 }
 
 func (r *gormRepository) DeleteObjective(ctx context.Context, userID uuid.UUID) error {
 	result := r.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&DailyObjective{})
-	if result.Error != nil {
-		return NewDomainError(ErrCodeRepositoryFailure, ErrUnableToDelete)
-	}
+	   if result.Error != nil {
+		   return NewDomainError(ErrCodeRepositoryFailure, result.Error)
+	   }
 	return nil
 }

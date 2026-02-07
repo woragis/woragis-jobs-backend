@@ -52,10 +52,12 @@ func (r *gormRepository) UpdateResponse(ctx context.Context, response *Response)
 func (r *gormRepository) GetResponse(ctx context.Context, responseID uuid.UUID) (*Response, error) {
 	var response Response
 	if err := r.db.WithContext(ctx).Where("id = ?", responseID).First(&response).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, NewDomainError(ErrCodeNotFound, ErrResponseNotFound)
-		}
-		return nil, NewDomainError(ErrCodeRepositoryFailure, ErrUnableToFetch)
+		   if errors.Is(err, gorm.ErrRecordNotFound) {
+			   return nil, NewDomainError(ErrCodeNotFound, err, map[string]interface{}{
+				   "response_id": responseID.String(),
+			   })
+		   }
+		   return nil, NewDomainError(ErrCodeRepositoryFailure, err)
 	}
 	return &response, nil
 }
@@ -80,9 +82,9 @@ func (r *gormRepository) ListResponses(ctx context.Context, filters ResponseFilt
 
 	query = query.Order("response_date DESC")
 
-	if err := query.Find(&responses).Error; err != nil {
-		return nil, NewDomainError(ErrCodeRepositoryFailure, ErrUnableToFetch)
-	}
+	   if err := query.Find(&responses).Error; err != nil {
+		   return nil, NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToFetch))
+	   }
 
 	return responses, nil
 }
@@ -90,10 +92,10 @@ func (r *gormRepository) ListResponses(ctx context.Context, filters ResponseFilt
 func (r *gormRepository) DeleteResponse(ctx context.Context, responseID uuid.UUID) error {
 	result := r.db.WithContext(ctx).Delete(&Response{}, responseID)
 	if result.Error != nil {
-		return NewDomainError(ErrCodeRepositoryFailure, ErrUnableToUpdate)
+		return NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToUpdate))
 	}
 	if result.RowsAffected == 0 {
-		return NewDomainError(ErrCodeNotFound, ErrResponseNotFound)
+		return NewDomainError(ErrCodeNotFound, errors.New(ErrResponseNotFound))
 	}
 	return nil
 }

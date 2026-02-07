@@ -2,6 +2,7 @@ package dailyobjectives
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -154,9 +155,9 @@ func (s *service) computeStats(ctx context.Context, userID uuid.UUID, startDate,
 		Where("ja.user_id = ? AND ja.created_at >= ? AND ja.created_at < ?", userID, startDate, endDate).
 		Scan(&stats)
 
-	if query.Error != nil {
-		return nil, NewDomainError(ErrCodeRepositoryFailure, ErrUnableToFetch)
-	}
+	   if query.Error != nil {
+		   return nil, NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToFetch))
+	   }
 
 	return &DailyStats{
 		Date:        startDate,
@@ -217,15 +218,15 @@ func (s *service) calculateProgress(date time.Time, stats *DailyStats, objective
 // validateRequest validates the create/update request.
 func validateRequest(req CreateObjectiveRequest) error {
 	// Check for negative values
-	if req.TotalTarget < 0 || req.JuniorTarget < 0 || req.PlenoTarget < 0 || req.SeniorTarget < 0 {
-		return NewDomainError(ErrCodeValidation, ErrNegativeTargets)
-	}
+	   if req.TotalTarget < 0 || req.JuniorTarget < 0 || req.PlenoTarget < 0 || req.SeniorTarget < 0 {
+		   return NewDomainError(ErrCodeValidation, errors.New(ErrNegativeTargets))
+	   }
 
 	// Check that sum equals total
 	sum := req.JuniorTarget + req.PlenoTarget + req.SeniorTarget
-	if sum != req.TotalTarget {
-		return NewDomainError(ErrCodeValidation, ErrTargetSumMismatch)
-	}
+	   if sum != req.TotalTarget {
+		   return NewDomainError(ErrCodeValidation, errors.New(ErrTargetSumMismatch))
+	   }
 
 	return nil
 }

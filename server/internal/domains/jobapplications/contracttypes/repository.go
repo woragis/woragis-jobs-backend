@@ -33,10 +33,10 @@ func (r *gormRepository) CreateType(ctx context.Context, contractType *ContractT
 func (r *gormRepository) GetType(ctx context.Context, typeID uuid.UUID) (*ContractType, error) {
 	var contractType ContractType
 	if err := r.db.WithContext(ctx).Where("id = ?", typeID).First(&contractType).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, NewDomainError(ErrCodeNotFound, ErrContractTypeNotFound)
-		}
-		return nil, NewDomainError(ErrCodeRepositoryFailure, ErrUnableToFetch)
+		   if errors.Is(err, gorm.ErrRecordNotFound) {
+			   return nil, NewDomainError(ErrCodeNotFound, ErrContractTypeNotFound)
+		   }
+		   return nil, NewDomainError(ErrCodeRepositoryFailure, ErrUnableToFetch)
 	}
 	return &contractType, nil
 }
@@ -73,11 +73,11 @@ func (r *gormRepository) SeedTypes(ctx context.Context, types []ContractType) er
 	}
 
 	// Insert all types
-	for _, contractType := range types {
-		if err := r.db.WithContext(ctx).Create(&contractType).Error; err != nil {
-			return NewDomainError(ErrCodeRepositoryFailure, ErrUnableToCreate)
-		}
-	}
+	   for _, contractType := range types {
+		   if err := r.db.WithContext(ctx).Create(&contractType).Error; err != nil {
+			   return NewDomainError(ErrCodeRepositoryFailure, ErrUnableToCreate)
+		   }
+	   }
 
 	return nil
 }
