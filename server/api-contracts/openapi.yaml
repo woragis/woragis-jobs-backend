@@ -1,0 +1,112 @@
+openapi: 3.0.3
+info:
+  title: Woragis Jobs API
+  version: 1.0.0
+  description: API contract for jobs backend/frontend
+servers:
+  - url: http://localhost:8080
+paths:
+  /job-applications:
+    get:
+      summary: List job applications
+      responses:
+        '200':
+          description: List of job applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobApplication'
+    post:
+      summary: Create a job application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobApplicationCreateRequest'
+      responses:
+        '201':
+          description: Created job application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobApplication'
+  /daily-objectives:
+    get:
+      summary: Get daily objectives
+      responses:
+        '200':
+          description: Daily objectives
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyObjective'
+    post:
+      summary: Create daily objectives
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DailyObjectiveCreateRequest'
+      responses:
+        '201':
+          description: Created daily objectives
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyObjective'
+components:
+  schemas:
+    JobApplication:
+      type: object
+      properties:
+        id:
+          type: string
+        position:
+          type: string
+        company:
+          type: string
+        status:
+          type: string
+        appliedAt:
+          type: string
+          format: date-time
+    JobApplicationCreateRequest:
+      type: object
+      properties:
+        position:
+          type: string
+        company:
+          type: string
+        status:
+          type: string
+    DailyObjective:
+      type: object
+      properties:
+        id:
+          type: string
+        totalTarget:
+          type: integer
+        juniorTarget:
+          type: integer
+        plenoTarget:
+          type: integer
+        seniorTarget:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    DailyObjectiveCreateRequest:
+      type: object
+      properties:
+        totalTarget:
+          type: integer
+        juniorTarget:
+          type: integer
+        plenoTarget:
+          type: integer
+        seniorTarget:
+          type: integer

@@ -1,22 +1,22 @@
 package dailyobjectives
 
 const (
-	ErrCodeInvalidPayload     = 12100
-	ErrCodeValidation         = 12101
-	ErrCodeRepositoryFailure  = 12102
-	ErrCodeNotFound           = 12103
+	ErrCodeInvalidPayload    = 12100
+	ErrCodeValidation        = 12101
+	ErrCodeRepositoryFailure = 12102
+	ErrCodeNotFound          = 12103
 )
 
 const (
-	ErrObjectiveNotFound           = "dailyobjectives: objective not found"
-	ErrInvalidPayload              = "dailyobjectives: invalid payload"
-	ErrTargetSumMismatch           = "dailyobjectives: sum of junior + pleno + senior must equal total target"
-	ErrNegativeTargets             = "dailyobjectives: targets must be non-negative"
-	ErrInvalidTargets              = "dailyobjectives: invalid targets"
-	ErrUnableToFetch               = "dailyobjectives: unable to fetch data"
-	ErrUnableToCreate              = "dailyobjectives: unable to create data"
-	ErrUnableToUpdate              = "dailyobjectives: unable to update data"
-	ErrUnableToDelete              = "dailyobjectives: unable to delete data"
+	ErrObjectiveNotFound = "dailyobjectives: objective not found"
+	ErrInvalidPayload    = "dailyobjectives: invalid payload"
+	ErrTargetSumMismatch = "dailyobjectives: sum of junior + pleno + senior must equal total target"
+	ErrNegativeTargets   = "dailyobjectives: targets must be non-negative"
+	ErrInvalidTargets    = "dailyobjectives: invalid targets"
+	ErrUnableToFetch     = "dailyobjectives: unable to fetch data"
+	ErrUnableToCreate    = "dailyobjectives: unable to create data"
+	ErrUnableToUpdate    = "dailyobjectives: unable to update data"
+	ErrUnableToDelete    = "dailyobjectives: unable to delete data"
 )
 
 type DomainError struct {
