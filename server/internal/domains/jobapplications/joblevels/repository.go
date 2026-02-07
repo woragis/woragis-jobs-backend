@@ -27,18 +27,21 @@ func NewGormRepository(db *gorm.DB) Repository {
 }
 
 func (r *gormRepository) CreateLevel(ctx context.Context, level *JobLevel) error {
-	return r.db.WithContext(ctx).Create(level).Error
+	if err := r.db.WithContext(ctx).Create(level).Error; err != nil {
+		return NewDomainError(ErrCodeDatabaseError, err)
+	}
+	return nil
 }
 
 func (r *gormRepository) GetLevel(ctx context.Context, levelID uuid.UUID) (*JobLevel, error) {
 	var level JobLevel
 	if err := r.db.WithContext(ctx).Where("id = ?", levelID).First(&level).Error; err != nil {
-		   if errors.Is(err, gorm.ErrRecordNotFound) {
-			   return nil, NewDomainError(ErrCodeNotFound, err, map[string]interface{}{
-				   "level_id": levelID.String(),
-			   })
-		   }
-		   return nil, NewDomainError(ErrCodeDatabaseError, err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, NewDomainError(ErrCodeNotFound, err, map[string]interface{}{
+				"level_id": levelID.String(),
+			})
+		}
+		return nil, NewDomainError(ErrCodeDatabaseError, err)
 	}
 	return &level, nil
 }

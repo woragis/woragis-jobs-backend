@@ -40,25 +40,31 @@ func (r *gormRepository) CreateStage(ctx context.Context, stage *InterviewStage)
 	if err := stage.Validate(); err != nil {
 		return err
 	}
-	return r.db.WithContext(ctx).Create(stage).Error
+	if err := r.db.WithContext(ctx).Create(stage).Error; err != nil {
+		return NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToPersist))
+	}
+	return nil
 }
 
 func (r *gormRepository) UpdateStage(ctx context.Context, stage *InterviewStage) error {
 	if err := stage.Validate(); err != nil {
 		return err
 	}
-	return r.db.WithContext(ctx).Save(stage).Error
+	if err := r.db.WithContext(ctx).Save(stage).Error; err != nil {
+		return NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToUpdate))
+	}
+	return nil
 }
 
 func (r *gormRepository) GetStage(ctx context.Context, stageID uuid.UUID) (*InterviewStage, error) {
 	var stage InterviewStage
 	if err := r.db.WithContext(ctx).Where("id = ?", stageID).First(&stage).Error; err != nil {
-		   if errors.Is(err, gorm.ErrRecordNotFound) {
-			   return nil, NewDomainError(ErrCodeNotFound, err, map[string]interface{}{
-				   "stage_id": stageID.String(),
-			   })
-		   }
-		   return nil, NewDomainError(ErrCodeRepositoryFailure, err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, NewDomainError(ErrCodeNotFound, err, map[string]interface{}{
+				"stage_id": stageID.String(),
+			})
+		}
+		return nil, NewDomainError(ErrCodeRepositoryFailure, err)
 	}
 	return &stage, nil
 }

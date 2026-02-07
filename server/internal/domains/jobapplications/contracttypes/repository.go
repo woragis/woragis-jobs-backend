@@ -27,7 +27,10 @@ func NewGormRepository(db *gorm.DB) Repository {
 }
 
 func (r *gormRepository) CreateType(ctx context.Context, contractType *ContractType) error {
-	return r.db.WithContext(ctx).Create(contractType).Error
+	if err := r.db.WithContext(ctx).Create(contractType).Error; err != nil {
+		return NewDomainError(ErrCodeRepositoryFailure, ErrUnableToCreate)
+	}
+	return nil
 }
 
 func (r *gormRepository) GetType(ctx context.Context, typeID uuid.UUID) (*ContractType, error) {

@@ -39,25 +39,31 @@ func (r *gormRepository) CreateResponse(ctx context.Context, response *Response)
 	if err := response.Validate(); err != nil {
 		return err
 	}
-	return r.db.WithContext(ctx).Create(response).Error
+	if err := r.db.WithContext(ctx).Create(response).Error; err != nil {
+		return NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToPersist))
+	}
+	return nil
 }
 
 func (r *gormRepository) UpdateResponse(ctx context.Context, response *Response) error {
 	if err := response.Validate(); err != nil {
 		return err
 	}
-	return r.db.WithContext(ctx).Save(response).Error
+	if err := r.db.WithContext(ctx).Save(response).Error; err != nil {
+		return NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToUpdate))
+	}
+	return nil
 }
 
 func (r *gormRepository) GetResponse(ctx context.Context, responseID uuid.UUID) (*Response, error) {
 	var response Response
 	if err := r.db.WithContext(ctx).Where("id = ?", responseID).First(&response).Error; err != nil {
-		   if errors.Is(err, gorm.ErrRecordNotFound) {
-			   return nil, NewDomainError(ErrCodeNotFound, err, map[string]interface{}{
-				   "response_id": responseID.String(),
-			   })
-		   }
-		   return nil, NewDomainError(ErrCodeRepositoryFailure, err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, NewDomainError(ErrCodeNotFound, err, map[string]interface{}{
+				"response_id": responseID.String(),
+			})
+		}
+		return nil, NewDomainError(ErrCodeRepositoryFailure, err)
 	}
 	return &response, nil
 }

@@ -6,8 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-
-	apperrors "woragis-jobs-service/pkg/errors"
 )
 
 // Repository defines persistence operations for job websites.
@@ -33,23 +31,29 @@ func (r *gormRepository) CreateJobWebsite(ctx context.Context, website *JobWebsi
 	if err := website.Validate(); err != nil {
 		return err
 	}
-	return r.db.WithContext(ctx).Create(website).Error
+	if err := r.db.WithContext(ctx).Create(website).Error; err != nil {
+		return NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToPersist))
+	}
+	return nil
 }
 
 func (r *gormRepository) UpdateJobWebsite(ctx context.Context, website *JobWebsite) error {
 	if err := website.Validate(); err != nil {
 		return err
 	}
-	return r.db.WithContext(ctx).Save(website).Error
+	if err := r.db.WithContext(ctx).Save(website).Error; err != nil {
+		return NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToUpdate))
+	}
+	return nil
 }
 
 func (r *gormRepository) GetJobWebsite(ctx context.Context, websiteID uuid.UUID) (*JobWebsite, error) {
 	var website JobWebsite
 	if err := r.db.WithContext(ctx).Where("id = ?", websiteID).First(&website).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperrors.New(apperrors.DB_RECORD_NOT_FOUND)
+			return nil, NewDomainError(ErrCodeNotFound, err)
 		}
-		return nil, apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
+		return nil, NewDomainError(ErrCodeRepositoryFailure, err)
 	}
 	return &website, nil
 }
@@ -58,9 +62,9 @@ func (r *gormRepository) GetJobWebsiteByName(ctx context.Context, name string) (
 	var website JobWebsite
 	if err := r.db.WithContext(ctx).Where("name = ?", name).First(&website).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperrors.New(apperrors.DB_RECORD_NOT_FOUND)
+			return nil, NewDomainError(ErrCodeNotFound, err)
 		}
-		return nil, apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
+		return nil, NewDomainError(ErrCodeRepositoryFailure, err)
 	}
 	return &website, nil
 }
@@ -76,7 +80,7 @@ func (r *gormRepository) ListJobWebsites(ctx context.Context, enabledOnly bool) 
 	query = query.Order("name ASC")
 
 	if err := query.Find(&websites).Error; err != nil {
-		return nil, apperrors.Wrap(apperrors.DB_QUERY_FAILED, err)
+		return nil, NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToFetch))
 	}
 
 	return websites, nil
@@ -88,7 +92,7 @@ func (r *gormRepository) DeleteJobWebsite(ctx context.Context, websiteID uuid.UU
 		   return NewDomainError(ErrCodeRepositoryFailure, errors.New(ErrUnableToUpdate))
 	   }
 	if result.RowsAffected == 0 {
-		return apperrors.New(apperrors.DB_RECORD_NOT_FOUND)
+		return NewDomainError(ErrCodeNotFound, errors.New(ErrWebsiteNotFound))
 	}
 	return nil
 }
