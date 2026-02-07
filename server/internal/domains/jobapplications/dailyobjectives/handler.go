@@ -33,8 +33,7 @@ func NewHandler(service Service) *Handler {
 // @Failure 409 {object} response.ErrorResponse
 // @Router /daily-objectives [post]
 func (h *Handler) CreateObjective(c *fiber.Ctx) error {
-	userIDRaw := c.Locals("userId")
-	if userIDRaw == nil {
+		userIDRaw := c.Locals("userID")
 		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
 	}
 
@@ -78,8 +77,7 @@ func (h *Handler) CreateObjective(c *fiber.Ctx) error {
 // @Failure 404 {object} response.ErrorResponse
 // @Router /daily-objectives [get]
 func (h *Handler) GetObjective(c *fiber.Ctx) error {
-	userIDRaw := c.Locals("userId")
-	if userIDRaw == nil {
+		userIDRaw := c.Locals("userID")
 		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
 	}
 
@@ -116,8 +114,7 @@ func (h *Handler) GetObjective(c *fiber.Ctx) error {
 // @Failure 404 {object} response.ErrorResponse
 // @Router /daily-objectives [patch]
 func (h *Handler) UpdateObjective(c *fiber.Ctx) error {
-	userIDRaw := c.Locals("userId")
-	if userIDRaw == nil {
+		userIDRaw := c.Locals("userID")
 		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
 	}
 
@@ -159,8 +156,7 @@ func (h *Handler) UpdateObjective(c *fiber.Ctx) error {
 // @Failure 404 {object} response.ErrorResponse
 // @Router /daily-progress/today [get]
 func (h *Handler) GetTodayProgress(c *fiber.Ctx) error {
-	userIDRaw := c.Locals("userId")
-	if userIDRaw == nil {
+		userIDRaw := c.Locals("userID")
 		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
 	}
 
@@ -198,8 +194,7 @@ func (h *Handler) GetTodayProgress(c *fiber.Ctx) error {
 // @Failure 404 {object} response.ErrorResponse
 // @Router /daily-progress/history [get]
 func (h *Handler) GetHistoricalProgress(c *fiber.Ctx) error {
-	userIDRaw := c.Locals("userId")
-	if userIDRaw == nil {
+		userIDRaw := c.Locals("userID")
 		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
 	}
 
