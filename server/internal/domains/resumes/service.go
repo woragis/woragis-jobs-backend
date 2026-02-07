@@ -214,7 +214,7 @@ func (s *service) GetBestResume(ctx context.Context, userID uuid.UUID) (*Resume,
 	}
 
 	if len(resumes) == 0 {
-		return nil, NewDomainError(ErrCodeNotFound, ErrResumeNotFound)
+		return nil, NewDomainErrorFromString(ErrCodeNotFound, ErrResumeNotFound)
 	}
 
 	// Return the most recent (first in list since it's ordered by created_at DESC)

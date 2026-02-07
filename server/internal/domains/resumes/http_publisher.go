@@ -52,57 +52,85 @@ func NewHTTPPublisher(resumeGeneratorURL string, timeoutMs int, logger *slog.Log
 
 // PublishResumeGenerationJob sends a POST to /jobs/start on the resume-generator.
 func (p *httpPublisher) PublishResumeGenerationJob(ctx context.Context, job *ResumeWorkerJob) error {
-    if p == nil {
-        return fmt.Errorf("publisher not initialized")
-    }
+	if p == nil {
+		return NewDomainError(ErrCodePublisherNotInitialized, fmt.Errorf("publisher not initialized"), map[string]interface{}{
+			"jobId": job.JobID,
+		})
+	}
 
-    // Build payload expected by resume-generator
-    payload := map[string]interface{}{
-        "userId": job.UserID,
-    }
+	// Build payload expected by resume-generator
+	payload := map[string]interface{}{
+		"userId": job.UserID,
+	}
 
-    // Extract jobApplicationId from metadata if present
-    if v, ok := job.Metadata["job_application_id"]; ok {
-        if s, ok := v.(string); ok && s != "" {
-            payload["jobApplicationId"] = s
-        }
-    }
+	// Extract jobApplicationId from metadata if present
+	if v, ok := job.Metadata["job_application_id"]; ok {
+		if s, ok := v.(string); ok && s != "" {
+			payload["jobApplicationId"] = s
+		}
+	}
 
-    // jobDescription and language
-    if job.JobDescription != "" {
-        payload["jobDescription"] = job.JobDescription
-    }
-    if v, ok := job.Metadata["language"]; ok {
-        if s, ok := v.(string); ok && s != "" {
-            payload["language"] = s
-        }
-    }
+	// jobDescription and language
+	if job.JobDescription != "" {
+		payload["jobDescription"] = job.JobDescription
+	}
+	if v, ok := job.Metadata["language"]; ok {
+		if s, ok := v.(string); ok && s != "" {
+			payload["language"] = s
+		}
+	}
 
-    body, err := json.Marshal(payload)
-    if err != nil {
-        return fmt.Errorf("failed to marshal job payload: %w", err)
-    }
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return NewDomainError(ErrCodeInvalidPayload, err, map[string]interface{}{
+			"jobId": job.JobID,
+		})
+	}
 
-    req, err := http.NewRequestWithContext(ctx, "POST", p.url+"/jobs/start", io.NopCloser(bytesReader(body)))
-    if err != nil {
-        return fmt.Errorf("failed to create HTTP request: %w", err)
-    }
-    req.Header.Set("Content-Type", "application/json")
+	req, err := http.NewRequestWithContext(ctx, "POST", p.url+"/jobs/start", io.NopCloser(bytesReader(body)))
+	if err != nil {
+		return NewDomainError(ErrCodeHTTPRequestFailed, err, map[string]interface{}{
+			"jobId": job.JobID,
+			"url":   p.url,
+		})
+	}
+	req.Header.Set("Content-Type", "application/json")
 
-    resp, err := p.client.Do(req)
-    if err != nil {
-        p.logger.Error("http publish failed", "error", err.Error(), "url", p.url)
-        return err
-    }
-    defer resp.Body.Close()
+	resp, err := p.client.Do(req)
+	if err != nil {
+		p.logger.Error("resume generator HTTP request failed",
+			"error_code", ErrCodeHTTPRequestFailed,
+			"jobId", job.JobID,
+			"url", p.url,
+			"error", err.Error(),
+		)
+		return NewDomainError(ErrCodeHTTPRequestFailed, err, map[string]interface{}{
+			"jobId": job.JobID,
+			"url":   p.url,
+		})
+	}
+	defer resp.Body.Close()
 
-    if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-        p.logger.Error("resume-generator rejected job", "status", resp.StatusCode)
-        return fmt.Errorf("resume-generator returned status %d", resp.StatusCode)
-    }
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		p.logger.Error("resume generator rejected job",
+			"error_code", ErrCodePublisherFailed,
+			"jobId", job.JobID,
+			"status", resp.StatusCode,
+			"response_body", string(bodyBytes),
+		)
+		return NewDomainError(ErrCodePublisherFailed, fmt.Errorf("status %d", resp.StatusCode), map[string]interface{}{
+			"jobId":          job.JobID,
+			"status":         resp.StatusCode,
+			"resume_gen_url": p.url,
+		})
+	}
 
-    p.logger.Info("resume generation job forwarded to resume-generator", "jobId", job.JobID)
-    return nil
+	p.logger.Info("resume generation job forwarded to resume-generator",
+		"jobId", job.JobID,
+		"userId", job.UserID,
+	)
+	return nil
 }
 
 func (p *httpPublisher) Close() error {

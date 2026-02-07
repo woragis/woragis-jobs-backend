@@ -104,31 +104,31 @@ func normalizeTags(tags JSONArray) JSONArray {
 // Validate ensures resume invariants hold.
 func (r *Resume) Validate() error {
 	if r == nil {
-		return NewDomainError(ErrCodeInvalidPayload, ErrNilResume)
+		return NewDomainErrorFromString(ErrCodeInvalidPayload, ErrNilResume)
 	}
 
 	if r.ID == uuid.Nil {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyResumeID)
+		return NewDomainErrorFromString(ErrCodeInvalidPayload, ErrEmptyResumeID)
 	}
 
 	if r.UserID == uuid.Nil {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyUserID)
+		return NewDomainErrorFromString(ErrCodeInvalidPayload, ErrEmptyUserID)
 	}
 
 	if r.Title == "" {
-		return NewDomainError(ErrCodeInvalidName, ErrEmptyResumeTitle)
+		return NewDomainErrorFromString(ErrCodeInvalidName, ErrEmptyResumeTitle)
 	}
 
 	if r.FilePath == "" {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyFilePath)
+		return NewDomainErrorFromString(ErrCodeInvalidPayload, ErrEmptyFilePath)
 	}
 
 	if r.FileName == "" {
-		return NewDomainError(ErrCodeInvalidPayload, ErrEmptyFileName)
+		return NewDomainErrorFromString(ErrCodeInvalidPayload, ErrEmptyFileName)
 	}
 
 	if r.FileSize < 0 {
-		return NewDomainError(ErrCodeInvalidPayload, ErrInvalidFileSize)
+		return NewDomainErrorFromString(ErrCodeInvalidPayload, ErrInvalidFileSize)
 	}
 
 	return nil

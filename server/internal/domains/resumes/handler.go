@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -790,12 +791,34 @@ func (h *handler) GenerateResume(c *fiber.Ctx) error {
 	// Call service to generate resume (publishes job)
 	jobID, err := h.service.GenerateResume(c.Context(), userID, jobDescription, metadata)
 	if err != nil {
+		// Extract error code and details
+		var domainErr *DomainError
+		if errors.As(err, &domainErr) {
+			h.logger.Error("Resume generation failed",
+				slog.String("error_code", domainErr.Code),
+				slog.String("user_id", userID.String()),
+				slog.String("job_application_id", func() string { if jobApp != nil { return jobAppID.String() } ; return "" }()),
+				slog.Any("error_details", domainErr.Context),
+				slog.Any("error", domainErr.Unwrap()),
+			)
+			return response.Error(c, domainErr.GetHTTPStatus(), 0, fiber.Map{
+				"error_code": domainErr.Code,
+				"message":    domainErr.Message,
+				"details":    domainErr.Context,
+			})
+		}
+
+		// Generic error fallback
 		h.logger.Error("failed to generate resume",
+			slog.String("error_code", ErrCodeGenerationFailed),
 			slog.String("user_id", userID.String()),
 			slog.String("job_application_id", func() string { if jobApp != nil { return jobAppID.String() } ; return "" }()),
 			slog.Any("error", err),
 		)
-		return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{"message": "failed to enqueue job"})
+		return response.Error(c, fiber.StatusInternalServerError, 0, fiber.Map{
+			"error_code": ErrCodeGenerationFailed,
+			"message":    ErrorMessages[ErrCodeGenerationFailed],
+		})
 	}
 
 	h.logger.Info("Resume generation job enqueued",

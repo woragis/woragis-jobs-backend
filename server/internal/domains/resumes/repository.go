@@ -138,7 +138,7 @@ func (r *gormRepository) GetMainResume(ctx context.Context, userID uuid.UUID) (*
 	
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, NewDomainError(ErrCodeNotFound, ErrNoMainResume)
+			return nil, NewDomainErrorFromString(ErrCodeNotFound, ErrNoMainResume)
 		}
 		return nil, err
 	}
