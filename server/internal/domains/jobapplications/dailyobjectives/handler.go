@@ -41,7 +41,12 @@ func (h *Handler) CreateObjective(c *fiber.Ctx) error {
 
 	var req CreateObjectiveRequest
 	if err := c.BodyParser(&req); err != nil {
-		return responseutil.Error(c, fiber.StatusBadRequest, 12100, err.Error())
+		return responseutil.Error(c, fiber.StatusBadRequest, 12100, "Invalid JSON body: "+err.Error())
+	}
+
+	// Explicit nil/type checks for required fields
+	if req.TotalTarget == 0 && req.JuniorTarget == 0 && req.PlenoTarget == 0 && req.SeniorTarget == 0 {
+		return responseutil.Error(c, fiber.StatusBadRequest, 12101, "Missing or invalid fields: totalTarget, juniorTarget, plenoTarget, seniorTarget must be numbers and not null")
 	}
 
 	objective, err := h.service.CreateObjective(c.Context(), parsedUserID, req)
