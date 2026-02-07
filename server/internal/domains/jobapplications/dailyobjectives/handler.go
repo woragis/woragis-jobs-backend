@@ -33,18 +33,23 @@ func NewHandler(service Service) *Handler {
 // @Failure 409 {object} response.ErrorResponse
 // @Router /daily-objectives [post]
 func (h *Handler) CreateObjective(c *fiber.Ctx) error {
-		userIDRaw := c.Locals("userID")
+	userIDRaw := c.Locals("userID")
+	if userIDRaw == nil {
 		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
 	}
 
-	userID, ok := userIDRaw.(string)
-	if !ok {
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
-	}
-
-	parsedUserID, err := uuid.Parse(userID)
-	if err != nil {
-		return responseutil.Error(c, fiber.StatusBadRequest, 12100, "Invalid user ID format")
+	var parsedUserID uuid.UUID
+	switch v := userIDRaw.(type) {
+	case uuid.UUID:
+		parsedUserID = v
+	case string:
+		id, err := uuid.Parse(v)
+		if err != nil {
+			return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
+		}
+		parsedUserID = id
+	default:
+		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID type")
 	}
 
 	var req CreateObjectiveRequest
@@ -77,18 +82,23 @@ func (h *Handler) CreateObjective(c *fiber.Ctx) error {
 // @Failure 404 {object} response.ErrorResponse
 // @Router /daily-objectives [get]
 func (h *Handler) GetObjective(c *fiber.Ctx) error {
-		userIDRaw := c.Locals("userID")
+	userIDRaw := c.Locals("userID")
+	if userIDRaw == nil {
 		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
 	}
 
-	userID, ok := userIDRaw.(string)
-	if !ok {
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
-	}
-
-	parsedUserID, err := uuid.Parse(userID)
-	if err != nil {
-		return responseutil.Error(c, fiber.StatusBadRequest, 12100, "Invalid user ID format")
+	var parsedUserID uuid.UUID
+	switch v := userIDRaw.(type) {
+	case uuid.UUID:
+		parsedUserID = v
+	case string:
+		id, err := uuid.Parse(v)
+		if err != nil {
+			return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
+		}
+		parsedUserID = id
+	default:
+		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID type")
 	}
 
 	objective, err := h.service.GetObjective(c.Context(), parsedUserID)
@@ -114,18 +124,23 @@ func (h *Handler) GetObjective(c *fiber.Ctx) error {
 // @Failure 404 {object} response.ErrorResponse
 // @Router /daily-objectives [patch]
 func (h *Handler) UpdateObjective(c *fiber.Ctx) error {
-		userIDRaw := c.Locals("userID")
+	userIDRaw := c.Locals("userID")
+	if userIDRaw == nil {
 		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
 	}
 
-	userID, ok := userIDRaw.(string)
-	if !ok {
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
-	}
-
-	parsedUserID, err := uuid.Parse(userID)
-	if err != nil {
-		return responseutil.Error(c, fiber.StatusBadRequest, 12100, "Invalid user ID format")
+	var parsedUserID uuid.UUID
+	switch v := userIDRaw.(type) {
+	case uuid.UUID:
+		parsedUserID = v
+	case string:
+		id, err := uuid.Parse(v)
+		if err != nil {
+			return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
+		}
+		parsedUserID = id
+	default:
+		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID type")
 	}
 
 	var req CreateObjectiveRequest
@@ -156,18 +171,23 @@ func (h *Handler) UpdateObjective(c *fiber.Ctx) error {
 // @Failure 404 {object} response.ErrorResponse
 // @Router /daily-progress/today [get]
 func (h *Handler) GetTodayProgress(c *fiber.Ctx) error {
-		userIDRaw := c.Locals("userID")
+	userIDRaw := c.Locals("userID")
+	if userIDRaw == nil {
 		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
 	}
 
-	userID, ok := userIDRaw.(string)
-	if !ok {
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
-	}
-
-	parsedUserID, err := uuid.Parse(userID)
-	if err != nil {
-		return responseutil.Error(c, fiber.StatusBadRequest, 12100, "Invalid user ID format")
+	var parsedUserID uuid.UUID
+	switch v := userIDRaw.(type) {
+	case uuid.UUID:
+		parsedUserID = v
+	case string:
+		id, err := uuid.Parse(v)
+		if err != nil {
+			return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
+		}
+		parsedUserID = id
+	default:
+		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID type")
 	}
 
 	progress, err := h.service.GetTodayProgress(c.Context(), parsedUserID)
@@ -194,18 +214,23 @@ func (h *Handler) GetTodayProgress(c *fiber.Ctx) error {
 // @Failure 404 {object} response.ErrorResponse
 // @Router /daily-progress/history [get]
 func (h *Handler) GetHistoricalProgress(c *fiber.Ctx) error {
-		userIDRaw := c.Locals("userID")
+	userIDRaw := c.Locals("userID")
+	if userIDRaw == nil {
 		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Missing or invalid authentication token")
 	}
 
-	userID, ok := userIDRaw.(string)
-	if !ok {
-		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
-	}
-
-	parsedUserID, err := uuid.Parse(userID)
-	if err != nil {
-		return responseutil.Error(c, fiber.StatusBadRequest, 12100, "Invalid user ID format")
+	var parsedUserID uuid.UUID
+	switch v := userIDRaw.(type) {
+	case uuid.UUID:
+		parsedUserID = v
+	case string:
+		id, err := uuid.Parse(v)
+		if err != nil {
+			return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID format")
+		}
+		parsedUserID = id
+	default:
+		return responseutil.Error(c, fiber.StatusUnauthorized, 10001, "Invalid user ID type")
 	}
 
 	preset := c.Query("preset", "7days")
