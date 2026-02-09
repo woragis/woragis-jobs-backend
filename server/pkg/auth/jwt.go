@@ -121,10 +121,6 @@ func (j *JWTManager) Validate(tokenString string) (*Claims, error) {
 		}
 		return nil, ErrTokenInvalid
 	}
-	
-	if !token.Valid {
-		return nil, ErrTokenInvalid
-	}
 
 	claims, ok := token.Claims.(*Claims)
 	if !ok {
