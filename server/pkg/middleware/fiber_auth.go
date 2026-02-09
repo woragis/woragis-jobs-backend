@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"errors"
+	"log"
 
 	"woragis-jobs-service/pkg/auth"
 	"woragis-jobs-service/pkg/utils"
@@ -27,24 +28,37 @@ func JWTMiddleware(config JWTConfig) fiber.Handler {
 				// Allow internal service access
 				return c.Next()
 			}
+			log.Printf("[JWT Auth] Missing authorization header | %s %s | Request-ID: %s", 
+				c.Method(), c.Path(), c.Get("X-Request-ID"))
 			return utils.UnauthorizedResponse(c, "Authorization header required")
 		}
 
 		// Extract token from "Bearer <token>"
 		token, err := auth.ExtractTokenFromHeader(authHeader)
 		if err != nil {
+			log.Printf("[JWT Auth] Invalid authorization header format | %s %s | Error: %v | Request-ID: %s", 
+				c.Method(), c.Path(), err, c.Get("X-Request-ID"))
 			return utils.UnauthorizedResponse(c, "Invalid authorization header format")
 		}
 
 		// Validate token
 		claims, err := config.JWTManager.Validate(token)
 		if err != nil {
+			// Log with detailed error for debugging
+			tokenPreview := token
+			if len(token) > 20 {
+				tokenPreview = token[:20] + "..."
+			}
+			log.Printf("[JWT Auth] Token validation failed | %s %s | Error: %v | Token: %s | Request-ID: %s", 
+				c.Method(), c.Path(), err, tokenPreview, c.Get("X-Request-ID"))
+			
 			switch err {
 			case auth.ErrTokenExpired:
 				return utils.UnauthorizedResponse(c, "Token has expired")
 			case auth.ErrTokenInvalid:
 				return utils.UnauthorizedResponse(c, "Invalid token")
 			default:
+				// Unknown error - log it and return generic message
 				return utils.UnauthorizedResponse(c, "Token validation failed")
 			}
 		}
