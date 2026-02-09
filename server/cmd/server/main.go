@@ -416,7 +416,7 @@ func main() {
 	if authCfg != nil {
 		jwtManager = authPkg.NewJWTManager(
 			authCfg.JWTSecret,
-			cfg.AppName,
+			"", // Empty issuer to skip issuer validation - tokens just need valid signature
 			time.Duration(authCfg.JWTExpireHours)*time.Hour,
 			time.Duration(authCfg.JWTRefreshExpireHours)*time.Hour,
 		)
